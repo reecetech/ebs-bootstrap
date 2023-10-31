@@ -1,0 +1,11 @@
+global:
+  mode: healthcheck
+devices:
+  /dev/xvdf:
+    fs: "xfs"
+    mount_point: "/mnt/app"
+    owner: 1000
+    group: 1000
+    permissions: 755
+    label: "external-vol"
+    mode: healthcheck

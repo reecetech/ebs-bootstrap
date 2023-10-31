@@ -1,0 +1,6 @@
+.github
+configs
+LICENSE
+README.md
+build/*
+ebs-bootstrap*
