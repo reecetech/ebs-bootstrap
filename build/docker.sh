@@ -23,21 +23,10 @@ function map_depedencies() {
     fi
 }
 
-function get_docker_platform() {
-    arch="${1:-}"
-    if [ "${arch}" = 'arm64' ]; then
-        echo "linux/arm64"
-    elif [ "${arch}" = 'amd64' ]; then
-        echo "linux/amd64"
-    else
-        >&2 echo "🔴 Unsupported architecture: ${arch}"; exit 1
-    fi
-}
-
 function get_binary_name() {
     arch="${1:-}"
     if [ "${arch}" = 'arm64' ]; then
-        echo "ebs-bootstrap-linux-arm64"
+        echo "ebs-bootstrap-linux-aarch64"
     elif [ "${arch}" = 'amd64' ]; then
         echo "ebs-bootstrap-linux-x86_64"
     else
@@ -48,8 +37,7 @@ function get_binary_name() {
 function docker_build() {
     for arch in "${ARCHS[@]}"
     do
-        docker_platform="$(get_docker_platform "${arch}")"
-        docker build . -t "${IMAGE}:${arch}" --platform "${docker_platform}" --no-cache
+        docker build . -t "${IMAGE}:${arch}" --platform "linux/${arch}" --no-cache
         echo "🟢 Built image: ${IMAGE}:${arch}"
     done
 }
