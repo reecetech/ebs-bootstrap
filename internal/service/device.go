@@ -3,113 +3,107 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
-	"ebs-bootstrap/internal/utils"
+	"strconv"
+
+	"github.com/reecetech/ebs-bootstrap/internal/model"
+	"github.com/reecetech/ebs-bootstrap/internal/utils"
 )
 
-// Device Service Interface [START]
-
-type DeviceInfo struct {
-	Name		string
-	Label		string
-	Fs			string
-	MountPoint	string
-}
-
 type DeviceService interface {
+	GetSize(name string) (uint64, error) // bytes
 	GetBlockDevices() ([]string, error)
-	GetDeviceInfo(device string) (*DeviceInfo, error)
+	GetBlockDevice(name string) (*model.BlockDevice, error)
+	Mount(source string, target string, fs model.FileSystem, options model.MountOptions) error
+	Umount(source string, target string) error
 }
-
-// Device Service Interface [END]
 
 type LinuxDeviceService struct {
-	Runner utils.Runner
+	runnerFactory utils.RunnerFactory
 }
 
 type LsblkBlockDeviceResponse struct {
-	BlockDevices	[]LsblkBlockDevice `json:"blockdevices"`
+	BlockDevices []LsblkBlockDevice `json:"blockdevices"`
 }
 
 type LsblkBlockDevice struct {
-	Name		string	`json:"name"`
-	Label		string	`json:"label"`
-	FsType		string	`json:"fstype"`
-	MountPoint	string	`json:"mountpoint"`
+	Name       *string `json:"name"`
+	Label      *string `json:"label"`
+	FsType     *string `json:"fstype"`
+	MountPoint *string `json:"mountpoint"`
+}
+
+func NewLinuxDeviceService(rc utils.RunnerFactory) *LinuxDeviceService {
+	return &LinuxDeviceService{
+		runnerFactory: rc,
+	}
+}
+
+func (du *LinuxDeviceService) GetSize(name string) (uint64, error) {
+	r := du.runnerFactory.Select(utils.BlockDev)
+	output, err := r.Command("--getsize64", name)
+	if err != nil {
+		return 0, err
+	}
+	b, err := strconv.ParseUint(output, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("🔴 Failed to cast block device size to unsigned 64-bit integer")
+	}
+	return b, nil
 }
 
 func (du *LinuxDeviceService) GetBlockDevices() ([]string, error) {
-	output, err := du.Runner.Command("lsblk", "--nodeps", "-o", "NAME,LABEL,FSTYPE,MOUNTPOINT", "-J")
+	r := du.runnerFactory.Select(utils.Lsblk)
+	output, err := r.Command("--nodeps", "-o", "NAME", "-J")
 	if err != nil {
 		return nil, err
 	}
 	lbd := &LsblkBlockDeviceResponse{}
 	err = json.Unmarshal([]byte(output), lbd)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("🔴 Failed to decode lsblk response: %v", err)
 	}
-	d := make([]string,len(lbd.BlockDevices))
-	for i, _ := range d {
-		d[i] = "/dev/" + lbd.BlockDevices[i].Name
+	d := make([]string, len(lbd.BlockDevices))
+	for i := range d {
+		d[i] = "/dev/" + utils.Safe(lbd.BlockDevices[i].Name)
 	}
 	return d, nil
 }
 
-func (du *LinuxDeviceService) GetDeviceInfo(device string) (*DeviceInfo, error) {
-	output, err := du.Runner.Command("lsblk", "--nodeps", "-o", "NAME,LABEL,FSTYPE,MOUNTPOINT", "-J", device)
+func (du *LinuxDeviceService) GetBlockDevice(name string) (*model.BlockDevice, error) {
+	r := du.runnerFactory.Select(utils.Lsblk)
+	output, err := r.Command("--nodeps", "-o", "LABEL,FSTYPE,MOUNTPOINT", "-J", name)
 	if err != nil {
 		return nil, err
 	}
-	bd := &LsblkBlockDeviceResponse{}
-	err = json.Unmarshal([]byte(output), bd)
+	lbd := &LsblkBlockDeviceResponse{}
+	err = json.Unmarshal([]byte(output), lbd)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("🔴 Failed to decode lsblk response: %v", err)
 	}
-	if len(bd.BlockDevices) != 1 {
-		return nil, fmt.Errorf("🔴 [%s] An unexpected number of block devices were returned: Expected=1 Actual=%d", device, len(bd.BlockDevices))
+	if len(lbd.BlockDevices) != 1 {
+		return nil, fmt.Errorf("🔴 %s: An unexpected number of block devices were returned: Expected=1 Actual=%d", name, len(lbd.BlockDevices))
 	}
-	return &DeviceInfo{
-		Name: "/dev/" + bd.BlockDevices[0].Name,
-		Label: bd.BlockDevices[0].Label,
-		Fs: bd.BlockDevices[0].FsType,
-		MountPoint: bd.BlockDevices[0].MountPoint,
+	fst := utils.Safe(lbd.BlockDevices[0].FsType)
+	fs, err := model.ParseFileSystem(fst)
+	if err != nil {
+		return nil, fmt.Errorf("🔴 %s: %s", name, err)
+	}
+	return &model.BlockDevice{
+		Name:       name,
+		Label:      utils.Safe(lbd.BlockDevices[0].Label),
+		FileSystem: fs,
+		MountPoint: utils.Safe(lbd.BlockDevices[0].MountPoint),
 	}, nil
 }
 
-// Device Translator Service Interface [START]
-
-type DeviceTranslator struct {
-	Table map[string]string
+func (du *LinuxDeviceService) Mount(source string, target string, fs model.FileSystem, options model.MountOptions) error {
+	r := du.runnerFactory.Select(utils.Mount)
+	_, err := r.Command(source, "-t", string(fs), "-o", string(options), target)
+	return err
 }
 
-type DeviceTranslatorService interface {
-	GetTranslator() *DeviceTranslator
-}
-
-type EbsDeviceTranslator struct {
-	DeviceService DeviceService
-	NVMeService NVMeService
-}
-
-// Device Translator Service Interface [END]
-
-func (edt *EbsDeviceTranslator) GetTranslator() (*DeviceTranslator, error) {
-	dt := &DeviceTranslator{}
-	dt.Table = make(map[string]string)
-	devices, err := edt.DeviceService.GetBlockDevices()
-	if err != nil {
-		return nil, err
-	}
-	for _, device := range(devices) {
-		alias := device
-		if strings.HasPrefix(device, "/dev/nvme") {
-			alias, err = edt.NVMeService.GetBlockDeviceMapping(device)
-			if err != nil {
-				return nil, err
-			}
-		}
-		dt.Table[alias] = device
-		dt.Table[device] = alias
-	}
-	return dt, nil
+func (du *LinuxDeviceService) Umount(source string, target string) error {
+	r := du.runnerFactory.Select(utils.Umount)
+	_, err := r.Command(target)
+	return err
 }

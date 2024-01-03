@@ -1,140 +1,172 @@
 package service
 
 import (
-	"fmt"
 	"os"
+	"path"
 	"testing"
-	"ebs-bootstrap/internal/utils"
-	"github.com/google/go-cmp/cmp"
+
+	"github.com/reecetech/ebs-bootstrap/internal/model"
+	"github.com/reecetech/ebs-bootstrap/internal/utils"
 )
 
-func TestGetStats(t *testing.T) {
-	fs := &UnixFileService{}
-	t.Run("Get File Stats (Existing File)", func(t *testing.T) {
-		owner, group, permissions := os.Getuid(), os.Getgid(), os.FileMode(0644)
-		f, err := os.CreateTemp("", "sample")
-		utils.CheckError("CreateTemp()", t, nil, err)
-		defer os.Remove(f.Name())
+func TestGetFile(t *testing.T) {
+	file, err := regularFile()
+	defer os.Remove(file)
+	utils.CheckError("temporaryFile()", t, nil, err)
 
-		err = os.Chown(f.Name(), owner, group)
-		utils.CheckError("Chown()", t, nil, err)
+	dir, err := directory()
+	defer os.RemoveAll(dir)
+	utils.CheckError("temporaryDirectory()", t, nil, err)
 
-		err = os.Chmod(f.Name(), permissions)
-		utils.CheckError("Chmod()", t, nil, err)
+	// Source/Destination Regular File Symlink (srfs/drfs)
+	srfs, drfs, err := symlink(model.RegularFile)
+	utils.CheckError("symlink(model.RegularFile)", t, nil, err)
+	defer os.RemoveAll(path.Dir(drfs))
 
-		actual, err := fs.GetStats(f.Name())
-		utils.CheckError("GetStats()", t, nil, err)
-		
-		expected := &FileInfo{
-			Owner: fmt.Sprintf("%d", owner),
-			Group: fmt.Sprintf("%d", group),
-			Permissions: fmt.Sprintf("%o", permissions),
-			Exists: true,
-		}
-		if !cmp.Equal(actual, expected) {
-			t.Errorf("GetStats() [output] mismatch: Expected=%+v Actual=%+v", expected, actual)
-		}
-	})
-	t.Run("Get File Stats (Non-Existent File)", func(t *testing.T) {
-		expected := &FileInfo{Exists: false}
-		actual, err := fs.GetStats("/non-existent-file/file.txt")
-		if !cmp.Equal(actual, expected) {
-			t.Errorf("GetStats() [output] mismatch: Expected=%+v Actual=%+v", expected, actual)
-		}
-		utils.CheckError("GetStats()", t, nil, err)
-	})
-}
+	// Source/Destination Directory Symlink (sds/dds)
+	sds, dds, err := symlink(model.Directory)
+	utils.CheckError("symlink(model.Directory)", t, nil, err)
+	defer os.RemoveAll(path.Dir(dds))
 
-func TestValidateFile(t *testing.T) {
-	fs := &UnixFileService{}
+	// Source/Destination Special Symlink (sss/dss)
+	sss, dss, err := symlink(model.Special)
+	utils.CheckError("symlink(model.Special)", t, nil, err)
+	defer os.RemoveAll(path.Dir(dss))
 
-	// Create a variable to the current working directory
-	d, err := os.Getwd()
-	if err != nil {
-		t.Errorf("os.Getwd() [error] %s", err)
-		return
-	}
+	ufs := NewUnixFileService()
 
-	// Create a temporary file
-	f, err := os.CreateTemp("", "validate-file")
-	if err != nil {
-		t.Errorf("os.CreateTemp() [error] %s", err)
-		return
-	}
-	defer os.Remove(f.Name())
-
-	subtests := []struct{
-		Name		string
-		Path		string
-		ExpectedErr	error
+	subtests := []struct {
+		Name            string
+		Path            string
+		ExpectedPath    string
+		ExpectedType    model.FileType
+		ShouldExpectErr bool
 	}{
 		{
-			Name: 			"Valid (Existing File)",
-			Path:			f.Name(),
-			ExpectedErr:	nil,
+			Name:            "Regular File",
+			Path:            file,
+			ExpectedPath:    file,
+			ExpectedType:    model.RegularFile,
+			ShouldExpectErr: false,
 		},
 		{
-			Name: 			"Invalid (Existing Directory)",
-			Path:			d,
-			ExpectedErr:	fmt.Errorf("🔴 %s is not a regular file", d),
+			Name:            "Directory",
+			Path:            dir,
+			ExpectedPath:    dir,
+			ExpectedType:    model.Directory,
+			ShouldExpectErr: false,
 		},
 		{
-			Name: 			"Invalid: (Non-existing File)",
-			Path:			"/doesnt-exist",
-			ExpectedErr:	fmt.Errorf("🔴 /doesnt-exist does not exist"),
+			Name:            "Symlink<Regular File>",
+			Path:            drfs,
+			ExpectedPath:    srfs,
+			ExpectedType:    model.RegularFile,
+			ShouldExpectErr: false,
+		},
+		{
+			Name:            "Symlink<Directory>",
+			Path:            dds,
+			ExpectedPath:    sds,
+			ExpectedType:    model.Directory,
+			ShouldExpectErr: false,
+		},
+		{
+			Name:            "Symlink<Special>",
+			Path:            dss,
+			ExpectedPath:    sss,
+			ExpectedType:    model.Special,
+			ShouldExpectErr: false,
+		},
+		{
+			Name:            "File That Does Not Exist",
+			Path:            "/dev/does-not-exit",
+			ExpectedPath:    "",
+			ExpectedType:    0,
+			ShouldExpectErr: true,
 		},
 	}
 	for _, subtest := range subtests {
 		t.Run(subtest.Name, func(t *testing.T) {
-			err := fs.ValidateFile(subtest.Path)
-			utils.CheckError("ValidateFile()", t, subtest.ExpectedErr, err)
+			output, err := ufs.GetFile(subtest.Path)
+			utils.ExpectErr("ufs.GetFile()", t, subtest.ShouldExpectErr, err)
+			utils.CheckOutput("ufs.GetFile()", t, subtest.ExpectedPath, utils.Safe(output).Path)
+			utils.CheckOutput("ufs.GetFile()", t, subtest.ExpectedType, utils.Safe(output).Type)
 		})
 	}
 }
 
-func TestValidateDirectory(t *testing.T) {
-	fs := &UnixFileService{}
+func TestDirectoryModifications(t *testing.T) {
+	ufs := NewUnixFileService()
 
-	// Create a variable to the current working directory
-	d, err := os.Getwd()
+	// Create Temporary Directory
+	dir, err := directory()
+	utils.ExpectErr("temporaryDirectory()", t, false, err)
+	defer os.RemoveAll(dir)
+
+	// Create Nested Directory Inside Temporary Directory
+	nested := path.Join(dir, "nested")
+	err = ufs.CreateDirectory(nested)
+	utils.ExpectErr("ufs.CreateDirectory()", t, false, err)
+
+	// Get File Information of Nested Directory
+	file, err := ufs.GetFile(nested)
+	utils.ExpectErr("ufs.GetFile()", t, false, err)
+
+	// Change Permissions of Nested Directory
+	err = ufs.ChangePermissions(nested, file.Permissions)
+	utils.ExpectErr("ufs.ChangePermissions()", t, false, err)
+
+	// Change Owner of Nested Directory to Match Temporary Directory
+	err = ufs.ChangeOwner(nested, file.UserId, file.GroupId)
+	utils.ExpectErr("ufs.ChangeOwner()", t, false, err)
+}
+
+// Create a temporary file
+func regularFile() (string, error) {
+	file, err := os.CreateTemp("", "temp_file")
 	if err != nil {
-		t.Errorf("os.Getwd() [error] %s", err)
-		return
+		return "", err
 	}
+	defer file.Close()
+	return file.Name(), nil
+}
 
-	// Create a temporary file
-	f, err := os.CreateTemp("", "validate-directory")
+// Create a temporary directory
+func directory() (string, error) {
+	dir, err := os.MkdirTemp("", "temp_dir")
 	if err != nil {
-		t.Errorf("os.CreateTemp() [error] %s", err)
-		return
+		return "", err
 	}
-	defer os.Remove(f.Name())
+	return dir, nil
+}
 
-	subtests := []struct{
-		Name		string
-		Path		string
-		ExpectedErr	error
-	}{
-		{
-			Name: 			"Valid (Existing Directory)",
-			Path:			d,
-			ExpectedErr:	nil,
-		},
-		{
-			Name: 			"Invalid (Existing File)",
-			Path:			f.Name(),
-			ExpectedErr:	fmt.Errorf("🔴 %s is not a directory", f.Name()),
-		},
-		{
-			Name: 			"Invalid (Non-existing Directory)",
-			Path:			"/doesnt-exist",
-			ExpectedErr:	fmt.Errorf("🔴 /doesnt-exist does not exist"),
-		},
+// Create a temporary symbolic link
+func symlink(ft model.FileType) (string, string, error) {
+	dir, err := os.MkdirTemp("", "temp_symlink")
+	if err != nil {
+		return "", "", err
 	}
-	for _, subtest := range subtests {
-		t.Run(subtest.Name, func(t *testing.T) {
-			err := fs.ValidateDirectory(subtest.Path)
-			utils.CheckError("ValidateDirectory()", t, subtest.ExpectedErr, err)
-		})
+	var src string
+	switch ft {
+	case model.RegularFile:
+		f, err := os.CreateTemp(dir, "source")
+		if err != nil {
+			return "", "", nil
+		}
+		defer f.Close()
+		src = f.Name()
+	case model.Directory:
+		src, err = os.MkdirTemp(dir, "source")
+		if err != nil {
+			return "", "", nil
+		}
+	default:
+		src = "/dev/null"
 	}
+	dst := path.Join(dir, "destination")
+	err = os.Symlink(src, dst)
+	if err != nil {
+		return "", "", nil
+	}
+	return src, dst, nil
 }

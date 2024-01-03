@@ -8,14 +8,15 @@
 # Specific Architecture
 ./build/docker.sh --architecture arm64
 ls -la
-... ebs-bootstrap_linux-arm64
+... ebs-bootstrap-linux-aarch64
 
 # All Architectures
 ./build/docker.sh
 ls -la
-... ebs-bootstrap_linux-arm64
-... ebs-bootstrap_linux-x86_64
+... ebs-bootstrap-linux-aarch64
+... ebs-bootstrap-linux-x86_64
 ```
+
 ## Recommended Setup
 
 ### `systemd`

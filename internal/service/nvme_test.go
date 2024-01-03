@@ -3,100 +3,151 @@ package service
 import (
 	"fmt"
 	"testing"
-	"ebs-bootstrap/internal/utils"
+
+	"github.com/reecetech/ebs-bootstrap/internal/utils"
 )
 
 const (
 	UNSUPPORTED_NVME_VID = 0xFFFF
-	UNSUPPORTED_NVME_MN	 = "External NVME Manufacturer"
+	UNSUPPORTED_NVME_MN  = "External NVME Manufacturer"
 )
 
-func TestAwsNVMeService(t *testing.T) {
-	subtests := []struct{
-		Name 			string
-		Device			string
-		VendorId		uint16
-		ModelNumber		string
-		BlockDevice		string
-		ExpectedOutput	string
-		ExpectedErr		error
+const (
+	Space = 0x20
+	Null  = 0x00
+)
+
+func TestGetBlockDeviceMapping(t *testing.T) {
+	subtests := []struct {
+		Name               string
+		Device             string
+		VendorId           uint16
+		ModelNumber        string
+		BlockDevice        string
+		BlockDevicePadding byte
+		ExpectedOutput     string
+		ExpectedError      error
 	}{
 		{
-			Name:			"EBS NVMe Device (Partial Block Device)",
-			Device:			"/dev/nvme1n1",
-			VendorId:		AMZN_NVME_VID,
-			ModelNumber:	AMZN_NVME_EBS_MN,
-			BlockDevice:	"sdb",
-			ExpectedOutput:	"/dev/sdb",
-			ExpectedErr:	nil,
+			Name:               "EBS NVMe Device + Pre-launch",
+			Device:             "/dev/nvme1n1",
+			VendorId:           AMZN_NVME_VID,
+			ModelNumber:        AMZN_NVME_EBS_MN,
+			BlockDevice:        "sdb",
+			BlockDevicePadding: Space,
+			ExpectedOutput:     "/dev/sdb",
+			ExpectedError:      nil,
 		},
 		{
-			Name:			"EBS NVMe Device (Complete Block Device)",
-			Device:			"/dev/nvme1n1",
-			VendorId:		AMZN_NVME_VID,
-			ModelNumber:	AMZN_NVME_EBS_MN,
-			BlockDevice:	"/dev/sdb",
-			ExpectedOutput:	"/dev/sdb",
-			ExpectedErr:	nil,
+			Name:               "EBS NVMe Device + Post-launch",
+			Device:             "/dev/nvme1n1",
+			VendorId:           AMZN_NVME_VID,
+			ModelNumber:        AMZN_NVME_EBS_MN,
+			BlockDevice:        "/dev/sdb",
+			BlockDevicePadding: Space,
+			ExpectedOutput:     "/dev/sdb",
+			ExpectedError:      nil,
 		},
 		{
-			Name:			"Invalid NVMe Device (Unsupported Vendor ID)",
-			Device:			"/dev/nvme1n1",
-			VendorId:		UNSUPPORTED_NVME_VID,
-			ModelNumber:	AMZN_NVME_EBS_MN,
-			BlockDevice:	"",
-			ExpectedOutput:	"",
-			ExpectedErr:	fmt.Errorf("🔴 /dev/nvme1n1 is not an AWS-managed NVME device"),
+			Name:               "Instance Store NVMe Device",
+			Device:             "/dev/nvme1n1",
+			VendorId:           AMZN_NVME_VID,
+			ModelNumber:        AMZN_NVME_INS_MN,
+			BlockDevice:        "ephemeral0:sdb",
+			BlockDevicePadding: 0x53,
+			ExpectedOutput:     "/dev/sdb",
+			ExpectedError:      nil,
 		},
 		{
-			Name:			"Invalid NVMe Device (Unsupported Model Number)",
-			Device:			"/dev/nvme1n1",
-			VendorId:		AMZN_NVME_VID,
-			ModelNumber:	UNSUPPORTED_NVME_MN,
-			BlockDevice:	"",
-			ExpectedOutput:	"",
-			ExpectedErr:	fmt.Errorf("🔴 /dev/nvme1n1 is not an AWS-managed NVME device"),
+			Name:               "Instance Store NVMe Device + Null Byte",
+			Device:             "/dev/nvme1n1",
+			VendorId:           AMZN_NVME_VID,
+			ModelNumber:        AMZN_NVME_INS_MN,
+			BlockDevice:        "ephemeral0:sdb\x00a",
+			BlockDevicePadding: Null,
+			ExpectedOutput:     "/dev/sdb",
+			ExpectedError:      nil,
+		},
+		{
+			Name:               "Instance Store NVMe Device + Missing Block Device Mapping",
+			Device:             "/dev/nvme1n1",
+			VendorId:           AMZN_NVME_VID,
+			ModelNumber:        AMZN_NVME_INS_MN,
+			BlockDevice:        "ephemeral0:none",
+			BlockDevicePadding: Null,
+			ExpectedOutput:     "",
+			ExpectedError:      fmt.Errorf("🔴 /dev/nvme1n1: Must provide a device name to the Instance Store NVMe block device mapping"),
+		},
+		{
+			Name:               "Instance Store NVMe Device + Pattern Mismatch",
+			Device:             "/dev/nvme1n1",
+			VendorId:           AMZN_NVME_VID,
+			ModelNumber:        AMZN_NVME_INS_MN,
+			BlockDevice:        "ephemeral0:vdb",
+			BlockDevicePadding: Null,
+			ExpectedOutput:     "",
+			ExpectedError:      fmt.Errorf("🔴 /dev/nvme1n1: Instance-store vendor specific metadata did not match pattern . Pattern=^ephemeral[0-9]:(sd[a-z]|none), Actual=ephemeral0:vdb"),
+		},
+		{
+			Name:               "Invalid NVMe Device (Unsupported Vendor ID)",
+			Device:             "/dev/nvme1n1",
+			VendorId:           UNSUPPORTED_NVME_VID,
+			ModelNumber:        AMZN_NVME_EBS_MN,
+			BlockDevice:        "",
+			BlockDevicePadding: Null,
+			ExpectedOutput:     "",
+			ExpectedError:      fmt.Errorf("🔴 /dev/nvme1n1 is not an AWS-managed NVME device"),
+		},
+		{
+			Name:               "Invalid NVMe Device (Unsupported Model Number)",
+			Device:             "/dev/nvme1n1",
+			VendorId:           AMZN_NVME_VID,
+			ModelNumber:        UNSUPPORTED_NVME_MN,
+			BlockDevice:        "",
+			BlockDevicePadding: Null,
+			ExpectedOutput:     "",
+			ExpectedError:      fmt.Errorf("🔴 /dev/nvme1n1 is not an AWS-managed NVME device"),
 		},
 	}
 	for _, subtest := range subtests {
-        t.Run(subtest.Name, func(t *testing.T) {
-			nd := &NVMeDevice{
-				Name:	subtest.Device,
-				IdCtrl:	nvmeIdentifyController{
-					Vid:	subtest.VendorId,
-					Mn:		parseModelNumber(subtest.ModelNumber),
-					Vs:		nvmeIdentifyControllerAmznVS{
-						Bdev:	parseBlockDevice(subtest.BlockDevice),
+		t.Run(subtest.Name, func(t *testing.T) {
+			nd := &NVMeIoctlResult{
+				Name: subtest.Device,
+				IdCtrl: nvmeIdentifyController{
+					Vid: subtest.VendorId,
+					Mn:  modelNumber(subtest.ModelNumber, Space),
+					Vs: nvmeIdentifyControllerAmznVS{
+						Bdev: blockDevice(subtest.BlockDevice, subtest.BlockDevicePadding),
 					},
 				},
 			}
-			ns := &AwsNVMeService{}
+			ns := NewAwsNitroNVMeService()
 			bdm, err := ns.getBlockDeviceMapping(nd)
-			if bdm != subtest.ExpectedOutput {
-				t.Errorf("getBlockDeviceMapping() [output] mismatch: Expected=%+v Actual=%+v", subtest.ExpectedOutput, bdm)
-			}
-            utils.CheckError("getBlockDeviceMapping()", t, subtest.ExpectedErr, err)
-        })
-    }
+			utils.CheckError("getBlockDeviceMapping()", t, subtest.ExpectedError, err)
+			utils.CheckOutput("getBlockDeviceMapping()", t, subtest.ExpectedOutput, bdm)
+		})
+	}
 }
 
-func parseModelNumber(input string) [40]byte {
+func modelNumber(input string, padding byte) [40]byte {
 	var mn [40]byte
+	// Copies input into mn[:]
 	copy(mn[:], input)
 	if len(input) < 40 {
 		for i := len(input); i < 40; i++ {
-			mn[i] = ' '
+			mn[i] = padding
 		}
 	}
 	return mn
 }
 
-func parseBlockDevice(input string) [32]byte {
+func blockDevice(input string, padding byte) [32]byte {
 	var bd [32]byte
+	// Copies input into bd[:]
 	copy(bd[:], input)
 	if len(input) < 32 {
 		for i := len(input); i < 32; i++ {
-			bd[i] = ' '
+			bd[i] = padding
 		}
 	}
 	return bd
