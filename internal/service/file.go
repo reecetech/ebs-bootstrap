@@ -1,72 +1,81 @@
 package service
 
 import (
-	"os"
-	"syscall"
 	"fmt"
+	"os"
+	"path/filepath"
+	"syscall"
+
+	"github.com/reecetech/ebs-bootstrap/internal/model"
 )
 
-// File Service Interface [START]
-
-type FileInfo struct {
-	Owner		string
-	Group		string
-	Permissions	string
-	Exists		bool
-}
+const (
+	DefaultDirectoryPermissions = os.FileMode(0755)
+)
 
 type FileService interface {
-	GetStats(file string) (*FileInfo, error)
-	ValidateFile(path string)	(error)
+	GetFile(file string) (*model.File, error)
+	CreateDirectory(path string) error
+	ChangeOwner(file string, uid model.UserId, gid model.GroupId) error
+	ChangePermissions(file string, perms model.FilePermissions) error
 }
 
-// File Service Interface [END]
+type UnixFileService struct{}
 
-type UnixFileService struct {}
+func NewUnixFileService() *UnixFileService {
+	return &UnixFileService{}
+}
 
-func (ds *UnixFileService) GetStats(file string) (*FileInfo, error) {
+// We simplify our model of a file system by evaluating symbolic links in advance.
+// This means that any symbolic links will be resolved to a *model.File that reflects
+// its target.
+// This behaviour is useful because if a device is mounted to a symbolic link
+// (or any nested directory) using `mount`, the `lsblk` tool will report the
+// resolved location of the symbolic link.
+func (ufs *UnixFileService) GetFile(file string) (*model.File, error) {
 	info, err := os.Stat(file)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return &FileInfo{Exists: false}, nil
-		}
-        return nil, err
+		return nil, err
 	}
-	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
-		return &FileInfo{
-			Owner: fmt.Sprintf("%d", stat.Uid),
-			Group: fmt.Sprintf("%d", stat.Gid),
-			Permissions: fmt.Sprintf("%o", info.Mode().Perm()),
-			Exists:	true,
+
+	var ft model.FileType
+	switch mode := info.Mode(); {
+	case mode.IsRegular():
+		ft = model.RegularFile
+	case mode.IsDir():
+		ft = model.Directory
+	default:
+		ft = model.Special
+	}
+
+	file, err = filepath.EvalSymlinks(file)
+	if err != nil {
+		return nil, err
+	}
+
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if ok {
+		return &model.File{
+			Path:        file,
+			DeviceId:    stat.Dev,
+			InodeNo:     stat.Ino,
+			UserId:      model.UserId(stat.Uid),
+			GroupId:     model.GroupId(stat.Gid),
+			Permissions: model.FilePermissions(info.Mode().Perm()),
+			Type:        ft,
 		}, nil
 	}
-	return nil, fmt.Errorf("🔴 %s: Failed to get stats", file)
+	return nil, fmt.Errorf("🔴 %s: Failed to get os.stat() information", file)
 }
 
-func (ds *UnixFileService) ValidateFile(path string) (error) {
-    s, err := os.Stat(path)
-    if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("🔴 %s does not exist", path)
-		}
-        return err
-    }
-    if !s.Mode().IsRegular() {
-        return fmt.Errorf("🔴 %s is not a regular file", path)
-    }
-    return nil
+func (ufs *UnixFileService) CreateDirectory(path string) error {
+	return os.MkdirAll(path, DefaultDirectoryPermissions)
 }
 
-func (ds *UnixFileService) ValidateDirectory(path string) (error) {
-    s, err := os.Stat(path)
-    if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("🔴 %s does not exist", path)
-		}
-        return err
-    }
-    if !s.Mode().IsDir() {
-        return fmt.Errorf("🔴 %s is not a directory", path)
-    }
-    return nil
+func (ufs *UnixFileService) ChangeOwner(file string, uid model.UserId, gid model.GroupId) error {
+	return os.Chown(file, int(uid), int(gid))
+}
+
+func (ufs *UnixFileService) ChangePermissions(file string, perms model.FilePermissions) error {
+	return os.Chmod(file, perms.Perm())
 }

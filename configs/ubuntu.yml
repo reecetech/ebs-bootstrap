@@ -1,0 +1,9 @@
+devices:
+  /dev/vdb:
+    fs: xfs
+    label: external-vol
+    mountPoint: /mnt/app
+    group: ubuntu
+    user: ubuntu
+    permissions: 0644
+    resizeFs: true

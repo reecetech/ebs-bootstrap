@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1
 FROM golang:1.21
 
+# Build a static binary
+ENV CGO_ENABLED=0
+
 # Set destination for COPY
 WORKDIR /app
 
