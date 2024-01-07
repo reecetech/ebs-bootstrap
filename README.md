@@ -1,8 +1,25 @@
-# EBS Bootstrap
+# ebs-bootstrap
+
+![Screenshot of Configuration File and Output](assets/ebs-bootstrap.png)
+
+`ebs-bootstrap` is a tool that provides a **safe** and **as-code** approach for managing block devices on AWS EC2. It supports the following block device operations...
+
+* **Format** a file system
+* **Label** a file system
+* **Resize** a file system (when a threshold is reached)
+* **Mount** a block device
+* **Ownership** and **Permissions** management of the mount point
+
+Currently, the following following file systems are supported for querying and modification...
+
+* `ext4`
+* `xfs`
+
+Block device mappings can be [unpredictable](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html#device-name-limits) for AWS Nitro EC2 Instance types. `ebs-bootstrap` is equipped with the tools to recover the originally assigned block device mappings (`/dev/sd[a-z]`) from the dynamically allocated device names (`/dev/nvme[0-26]n1`) produced by **EBS** and **Instance Store** volumes. The consistent as-code management of block devices, is only possible by the ability of `ebs-bootstrap` to recover a device name that is stable across reboots and instance refreshes.
 
 ## Build
 
-`ebs-bootstrap` can be built locally regardless of the architecture of the host machine. This is facilitated by a multi-architecture Docker build process. The currently supported architechtures are `linux/amd64` and `linux/arm64`.
+`ebs-bootstrap` is a **statically-compiled** binary that can be built for both `linux/amd64` and `linux/arm64`. This process is facilitated by a multi-architecture Docker build process.
 
 ```bash
 # Specific Architecture
@@ -17,13 +34,28 @@ ls -la
 ... ebs-bootstrap-linux-x86_64
 ```
 
-## Recommended Setup
+## Installation
+
+The latest binary of `ebs-bootstrap` can be downloaded from [GitHub Releases](https://github.com/reecetech/ebs-bootstrap/releases)
+
+```
+curl -L \
+  -o /tmp/ebs-bootstrap \
+  "https://github.com/reecetech/ebs-bootstrap/releases/latest/download/ebs-bootstrap-linux-$(uname -m)"
+sudo install -m755 /tmp/ebs-bootstrap /usr/local/sbin/ebs-bootstrap
+```
+
+## Modes
+
+## Configuration
+
+## Applications
 
 ### `systemd`
 
-The ideal way of operating `ebs-bootstrap` is through a `systemd` service. This is so we can configure it as a `oneshot` service type that executes after the file system is ready and after `clout-init.service` writes any config files to disk. The latter is essential as `ebs-bootstrap` consumes a config file that is located at `/etc/ebs-boostrap/config.yml` by default. 
+A potential way of operating `ebs-bootstrap` is through a `systemd` service. This is so we can configure it as a `oneshot` service type that executes after the file system is ready and after `clout-init.service` writes any config files to disk. The latter is essential as `ebs-bootstrap` consumes a config file that is located at `/etc/ebs-boostrap/config.yml` by default. 
 
-`ExecStopPost=-...` con point torwards a script that is executed when the `ebs-bootstrap` service exits on either success or failure. This is a suitable place to include logic to notify a human operator that the configured devices failed their relevant healthchecks and the underlying application failed to launch in the process.
+`ExecStopPost=-...` con point towards a script that is executed when the `ebs-bootstrap` service exits on either success or failure. This is a suitable place to include logic to notify an engineer that the configured devices failed their relevant healthchecks and the underlying application failed to launch in the process.
 
 ```ini
 [Unit]
@@ -34,7 +66,7 @@ After=local-fs.target cloud-init.service
 Type=oneshot
 RemainAfterExit=true
 StandardInput=null
-ExecStart=ebs-bootstrap
+ExecStart=/usr/local/sbin/ebs-bootstrap
 PrivateMounts=no
 MountFlags=shared
 ExecStopPost=-/etc/ebs-bootstrap/post-hook.sh
@@ -75,101 +107,59 @@ WantedBy=multi-user.target
 
 ### `cloud-init`
 
-`cloud-init` can be configured through EC2 User Data to write a config file to `/etc/ebs-boostrap/config.yml` through the `write_files` module. 
+By default, `ebs-bootstrap` consumes a configuration file located at `/etc/ebs-boostrap/config.yml`. `cloud-init` can be configured to write a config to this location, using the `write_files` module. Ensure that `ebs-bootstrap` is installed on your Instance via the process of baking it into your Golden AMI or downloading it early in the boot process, using the `runcmd` module.
 
-The NVMe Driver, for Nitro-based EC2 Instances, has an [established behaviour](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/nvme-ebs-volumes.html) of dynamically renaming a block device, based on the order in which the device is attached to the EC2 instance. This order is unpredictable, thus it is recommended to label the volumes appropriately so that they can be referenced consistently in the `mounts` module. The `mounts` module is responsible for managing the `/etc/fstab` file, thus establishing a reliable mechanism for mounting external volumes at boot, independent of the block storage driver used by the EC2 instance.
+The advent of Instance Store provided Nitro-enabled EC2 instances the ability to harness the power of high speed NVMe. However, these Instance Store devices were ephemeral and had to be formatted and mounted on each startup cycle. For a stateful workload like a database, you might want a fast and ephemeral space for temporary tables, alongside a stateful EBS volume declared in a different CloudFormation Stack, separate from your compute.
+
+From the perspective of a **sceptical** Platforms Engineer, you do not mind a tool like `ebs-bootstrap` automating the task of formatting and mounting an ephemeral device. However, you personally draw the line on automation executing modifications to a stateful device, **without** the prior consent of a human. `ebs-bootstrap` empowers this Platform Engineer by allowing them to specify the execution mode, on a **device-by-device** basis: Instance Store (`force`) and EBS Volume (`healthcheck`)
 
 ```yaml
 Resources:
   Instance:
     Type: AWS::EC2::Instance
   ...
+  InstanceType: m5ad.large  # Nitro Instance Type
   Volumes:
-    - Device: /dev/sdb
-      VolumeId: !Ref ExternalVolumeID
+    - Device: /dev/sdb  # EBS Volume (Stateful)
+      VolumeId: !ImportValue EbsVolumeId
+  BlockDeviceMappings:
+    - DeviceName: /dev/sdc  # Instance Store (Ephemeral)
+      VirtualName: ephemeral0
   UserData:
     Fn::Base64: !Sub
       - |+
         #cloud-config
         write_files:
           - content: |
-              global:
-                mode: healthcheck
               devices:
                 /dev/sdb:
                   fs: ${FileSystem}
-                  mount_point: /mnt/app
-                  owner: ec2-user
+                  mountPoint: /mnt/ebs
+                  mountOptions: ${MountOptions}
+                  user: ec2-user
                   group: ec2-user
                   permissions: 755
-                  label: external-vol
+                  label: stateful
+                  mode: healthcheck
+                /dev/sdc:
+                  fs: ${FileSystem}
+                  mountPoint: /mnt/instance-store
+                  mountOptions: ${MountOptions}
+                  user: ec2-user
+                  group: ec2-user
+                  permissions: 755
+                  label: ephemeral
+                  mode: force
             path: /etc/ebs-bootstrap/config.yml
-        mounts:
-          - [ "LABEL=external-vol", "/mnt/app", "${FileSystem}", "${MountOptions}", "0", "2" ]
+        runcmd:
+          - curl -L -o /tmp/ebs-bootstrap "${EbsBootstrapUrlPrefix}-$(uname -m)"
+          - install -m755 /tmp/ebs-bootstrap /usr/local/sbin/ebs-bootstrap
+        bootcmd:
+          - /usr/local/sbin/ebs-bootstrap
       - FileSystem: ext4
         MountOptions: defaults,nofail,x-systemd.device-timeout=5
+        EbsBootstrapUrlPrefix: >
+          https://github.com/reecetech/ebs-bootstrap/releases/download/latest/ebs-bootstrap-linux
 ```
 
-## Config
-
-### `global`
-
-#### `mode`
-
-Specifies the mode that `ebs-bootstrap` operates in
-  - `healthcheck`
-    - Validate whether the state of a device matches its desired configuration
-    - Returns an exit code of `0` 🟢, if no changes are detected
-    - Returns an exit code of `1` 🔴, if changes are detected
-
-### `devices[*]`
-
-#### `fs`
-
-The **file system** that the device has been formatted to
-  - If an empty string is provided, all other device properties will be ignored
-
-#### `mount_point`
-
-The **mount point** that the device has been mounted to
-  - If an empty string is provided, `owner`, `group` and `permissions` will be ignored
-
-#### `owner`
-
-The **user** that has been assigned ownership of the mount point
-  - Supports both a user **ID** and the **name** of the user
-
-#### `group`
-
-The **group** that has been assigned ownership of the mount point
-  - Supports both a group **ID** and the **name** of the group
-
-#### `permissions`
-
-The **permissions** that has been assigned to the mount point
-  - Must be specified as a three digit octal: `755`, `644`, ...
-
-#### `label`
-
-The **label** assigned to the formatted device
-  - Labels are constrained to the limitations of the underlying file system.
-    - `ext4` file systems have a maximum label size of `16`
-    - `xfs` file systems have a maximum label size of `12`
-   
-#### `mode`
-
-Provide a device-level **override** of a global `mode` property
-
-```yaml
-global:
-  mode: healthcheck
-devices:
-  /dev/xvdf:
-    fs: "xfs"
-    mount_point: "/ifmx/dev/root"
-    owner: 1000
-    group: 1000
-    permissions: 755
-    label: "external-vol"
-    mode: healthcheck
-```
+## Architecture
