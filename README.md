@@ -10,7 +10,7 @@
 * **Mount** a block device
 * **Ownership** and **Permissions** management of the mount point
 
-Currently, the following following file systems are supported for querying and modification...
+Currently, the following file systems are supported for querying and modification...
 
 * `ext4`
 * `xfs`
@@ -23,15 +23,15 @@ Block device mappings can be [unpredictable](https://docs.aws.amazon.com/AWSEC2/
 
 ```bash
 # Specific Architecture
-./build/docker.sh --architecture arm64
-ls -la
-... ebs-bootstrap-linux-aarch64
+[~] ./build/docker.sh --architecture arm64
+[~] ls -la
+ebs-bootstrap-linux-aarch64
 
 # All Architectures
-./build/docker.sh
-ls -la
-... ebs-bootstrap-linux-aarch64
-... ebs-bootstrap-linux-x86_64
+[~] ./build/docker.sh
+[~] ls -la
+ebs-bootstrap-linux-aarch64
+ebs-bootstrap-linux-x86_64
 ```
 
 ## Installation
@@ -47,9 +47,13 @@ sudo install -m755 /tmp/ebs-bootstrap /usr/local/sbin/ebs-bootstrap
 
 ## Modes
 
+// TODO
+
 ## Configuration
 
-## Applications
+// TODO
+
+## Use Cases
 
 ### `systemd`
 
@@ -123,7 +127,7 @@ Resources:
     - Device: /dev/sdb  # EBS Volume (Stateful)
       VolumeId: !ImportValue EbsVolumeId
   BlockDeviceMappings:
-    - DeviceName: /dev/sdc  # Instance Store (Ephemeral)
+    - DeviceName: /dev/sdh  # Instance Store (Ephemeral)
       VirtualName: ephemeral0
   UserData:
     Fn::Base64: !Sub
@@ -141,7 +145,7 @@ Resources:
                   permissions: 755
                   label: stateful
                   mode: healthcheck
-                /dev/sdc:
+                /dev/sdh:
                   fs: ${FileSystem}
                   mountPoint: /mnt/instance-store
                   mountOptions: ${MountOptions}
@@ -163,3 +167,10 @@ Resources:
 ```
 
 ## Architecture
+
+**Portability** was one of the key reasons why `ebs-bootstrap` was programmed in the Go programming language. The ease of distributing a single statically-compiled binary out-weighted the reduced development and testing complexity a language like Python would have brought. By producing a statically-compiled binary, we ensure that this tool is supported across common AWS-supported Linux distributions: Amazon Linux, RHEL/CentOS Derivatives and Ubuntu.
+
+For some insight about the layer architecture implemented by `ebs-bootstrap`, refer to the annotated UML diagram below.
+
+
+![UML Diagram of ebs-bootstrap Architecture](assets/uml.drawio.svg)
