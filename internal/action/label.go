@@ -41,9 +41,9 @@ func (a *LabelDeviceAction) Prompt() string {
 }
 
 func (a *LabelDeviceAction) Refuse() string {
-	return fmt.Sprintf("Refused to label to '%s'", a.label)
+	return fmt.Sprintf("Refused to label %s to '%s'", a.device, a.label)
 }
 
 func (a *LabelDeviceAction) Success() string {
-	return fmt.Sprintf("Successfully labelled to '%s'", a.label)
+	return fmt.Sprintf("Successfully labelled %s to '%s'", a.device, a.label)
 }

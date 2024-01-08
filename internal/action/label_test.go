@@ -36,12 +36,12 @@ func TestLabelDeviceActionMessages(t *testing.T) {
 		{
 			Name:           "Refuse",
 			Message:        lda.Refuse(),
-			ExpectedOutput: "Refused to label to 'example'",
+			ExpectedOutput: "Refused to label /dev/xvdf to 'example'",
 		},
 		{
 			Name:           "Success",
 			Message:        lda.Success(),
-			ExpectedOutput: "Successfully labelled to 'example'",
+			ExpectedOutput: "Successfully labelled /dev/xvdf to 'example'",
 		},
 	}
 	for _, subtest := range subtests {

@@ -39,9 +39,9 @@ func (a *FormatDeviceAction) Prompt() string {
 }
 
 func (a *FormatDeviceAction) Refuse() string {
-	return fmt.Sprintf("Refused to format to %s", a.fileSystemService.GetFileSystem())
+	return fmt.Sprintf("Refused to format %s to %s", a.device, a.fileSystemService.GetFileSystem())
 }
 
 func (a *FormatDeviceAction) Success() string {
-	return fmt.Sprintf("Successfully formatted to %s", a.fileSystemService.GetFileSystem().String())
+	return fmt.Sprintf("Successfully formatted %s to %s", a.device, a.fileSystemService.GetFileSystem().String())
 }
