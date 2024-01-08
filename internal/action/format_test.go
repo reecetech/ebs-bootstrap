@@ -36,12 +36,12 @@ func TestFormatDeviceActionMessages(t *testing.T) {
 		{
 			Name:           "Refuse",
 			Message:        fda.Refuse(),
-			ExpectedOutput: "Refused to format to ext4",
+			ExpectedOutput: "Refused to format /dev/xvdf to ext4",
 		},
 		{
 			Name:           "Success",
 			Message:        fda.Success(),
-			ExpectedOutput: "Successfully formatted to ext4",
+			ExpectedOutput: "Successfully formatted /dev/xvdf to ext4",
 		},
 	}
 	for _, subtest := range subtests {
