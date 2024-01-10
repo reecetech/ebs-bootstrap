@@ -53,52 +53,6 @@ sudo install -m755 /tmp/ebs-bootstrap /usr/local/sbin/ebs-bootstrap
 
 ## Use Cases
 
-### `systemd`
-
-A potential way of operating `ebs-bootstrap` is through a `systemd` service. This is so we can configure it as a `oneshot` service type that executes after the file system is ready and `clout-init.service` writes any config files to disk. The latter is essential as `ebs-bootstrap` consumes a config file that is located at `/etc/ebs-boostrap/config.yml` by default. 
-
-`ExecStopPost=-...` can point towards a script that is executed when the `ebs-bootstrap` service exits on either success or failure. This is a suitable place to include logic to notify an individual that the configured devices failed their relevant healthchecks and the underlying application failed to launch in the process.
-
-```ini
-[Unit]
-Description=EBS Bootstrap
-After=local-fs.target cloud-init.service
-
-[Service]
-Type=oneshot
-RemainAfterExit=true
-StandardInput=null
-ExecStart=/usr/local/sbin/ebs-bootstrap
-PrivateMounts=no
-MountFlags=shared
-ExecStopPost=-/etc/ebs-bootstrap/post-hook.sh
-
-[Install]
-WantedBy=multi-user.target
-```
-
-It is then possible to configure another `systemd` service to only start if the `ebs-bootstrap` service is successful. Certain databases support the ability to spread database chunks across multiple devices that need to be mounted to pre-defined directories with the correct ownership and permissions.
-
-In this particular use-case, the database could be configured as a `systemd` service that relies on the `ebs-bootstrap.service` to succeed before attempting to start. This can be achieved by specifiying `ebs-boostrap.service` as a dependency in the `Requires=` and `After=` parameters.
-
-```ini
-[Unit]
-Description=Example Database
-Wants=network-online.target
-Requires=ebs-bootstrap.service
-After=network.target network-online.target ebs-bootstrap.service
-
-[Service]
-Type=forking
-User=ec2-user
-Group=ec2-user
-ExecStart=/usr/bin/database start
-ExecStop=/usr/bin/database stop
-
-[Install]
-WantedBy=multi-user.target
-```
-
 ### `cloud-init`
 
 By default, `ebs-bootstrap` consumes a configuration file located at `/etc/ebs-boostrap/config.yml`. `cloud-init` can be configured to write a config to this location, using the `write_files` module. Ensure that `ebs-bootstrap` is installed on your Instance via the process of baking it into your Golden AMI or downloading it early in the boot process, using the `bootcmd` module.
@@ -209,4 +163,50 @@ The `mounts` module of `cloud-init` will create an entry in `/etc/fstab` for the
 LABEL=cloudimg-rootfs	/	 ext4	defaults,discard	0 1
 LABEL=UEFI	/boot/efi	vfat	umask=0077	0 1
 LABEL=stateful	/mnt/ebs	ext4	defaults,nofail,x-systemd.device-timeout=5,comment=cloudconfig	0	2
+```
+
+### `systemd`
+
+A potential way of operating `ebs-bootstrap` is through a `systemd` service. This is so we can configure it as a `oneshot` service type that executes after the file system is ready and `clout-init.service` writes any config files to disk. The latter is essential as `ebs-bootstrap` consumes a config file that is located at `/etc/ebs-boostrap/config.yml` by default. 
+
+`ExecStopPost=-...` can point towards a script that is executed when the `ebs-bootstrap` service exits on either success or failure. This is a suitable place to include logic to notify an individual that the configured devices failed their relevant healthchecks and the underlying application failed to launch in the process.
+
+```ini
+[Unit]
+Description=EBS Bootstrap
+After=local-fs.target cloud-init.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+StandardInput=null
+ExecStart=/usr/local/sbin/ebs-bootstrap
+PrivateMounts=no
+MountFlags=shared
+ExecStopPost=-/etc/ebs-bootstrap/post-hook.sh
+
+[Install]
+WantedBy=multi-user.target
+```
+
+It is then possible to configure another `systemd` service to only start if the `ebs-bootstrap` service is successful. Certain databases support the ability to spread database chunks across multiple devices that need to be mounted to pre-defined directories with the correct ownership and permissions.
+
+In this particular use-case, the database could be configured as a `systemd` service that relies on the `ebs-bootstrap.service` to succeed before attempting to start. This can be achieved by specifiying `ebs-boostrap.service` as a dependency in the `Requires=` and `After=` parameters.
+
+```ini
+[Unit]
+Description=Example Database
+Wants=network-online.target
+Requires=ebs-bootstrap.service
+After=network.target network-online.target ebs-bootstrap.service
+
+[Service]
+Type=forking
+User=ec2-user
+Group=ec2-user
+ExecStart=/usr/bin/database start
+ExecStop=/usr/bin/database stop
+
+[Install]
+WantedBy=multi-user.target
 ```
