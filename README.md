@@ -1,6 +1,8 @@
 # ebs-bootstrap
 
-![Screenshot of Configuration File and Output](assets/ebs-bootstrap.png)
+<p align="center">
+  <img src="assets/ebs-bootstrap.gif" alt="Demonstration of ebs-bootstrap" width="70%">
+</p>
 
 `ebs-bootstrap` is a tool that provides a **safe** and **as-code** approach for managing block devices on AWS EC2. It supports the following block device operations...
 
