@@ -49,81 +49,29 @@ sudo install -m755 /tmp/ebs-bootstrap /usr/local/sbin/ebs-bootstrap
 
 ## Documentation
 
-<a href="https://github.com/reecetech/ebs-bootstrap/wiki" target="_blank">
-  <img src="https://img.shields.io/badge/github_wiki-%2523121011.svg?style=for-the-badge&logo=github&logoColor=white&color=%23aa82e6">
+<a href="https://github.com/reecetech/ebs-bootstrap/wiki">
+  <img src="assets/badges/github-wiki.svg">
 </a>
 
 ## Use Cases
 
 ### `cloud-init`
 
-By default, `ebs-bootstrap` consumes a configuration file located at `/etc/ebs-boostrap/config.yml`. `cloud-init` can be configured to write a config to this location, using the `write_files` module. Ensure that `ebs-bootstrap` is installed on your Instance via the process of baking it into your Golden AMI or downloading it early in the boot process, using the `bootcmd` module.
+The advent of Instance Store provided Nitro-enabled EC2 instances the ability to harness the power of high speed NVMe. For a stateful workload like a database, you might desire a EBS volume for critical data and an Instance Store volume for temporary tables. However, these Instance Store devices were ephemeral and had to be formatted and mounted on each startup cycle. 
 
-The advent of Instance Store provided Nitro-enabled EC2 instances the ability to harness the power of high speed NVMe. For a stateful workload like a database, you might want a fast and ephemeral space for temporary tables, alongside a stateful EBS volume declared in a different CloudFormation Stack. However, these Instance Store devices were ephemeral and had to be formatted and mounted on each startup cycle. 
+From the perspective of a **sceptical** Platforms Engineer, you do not mind delegating the task of formatting and mounting ephemeral block devices to `ebs-bootstrap`. However, you personally draw the line on automation executing modifications to a stateful device, **without** the prior consent of a human. `ebs-bootstrap` empowers this Platform Engineer by allowing them to specify the execution mode, on a **device-by-device** basis: Instance Store (`force`) and EBS Volume (`healthcheck`)
 
-From the perspective of a **sceptical** Platforms Engineer, you do not mind a tool like `ebs-bootstrap` automating the task of formatting and mounting an ephemeral device. However, you personally draw the line on automation executing modifications to a stateful device, **without** the prior consent of a human. `ebs-bootstrap` empowers this Platform Engineer by allowing them to specify the execution mode, on a **device-by-device** basis: Instance Store (`force`) and EBS Volume (`healthcheck`)
+<a href="https://github.com/reecetech/ebs-bootstrap/blob/main/examples/cloudformation.yml">
+  <img src="assets/badges/cloudformation.svg">
+</a>
 
-```yaml
-Parameters:
-  LatestUbuntuAmi:
-    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-    Default: /aws/service/canonical/ubuntu/server/20.04/stable/current/amd64/hvm/ebs-gp2/ami-id
+> This CloudFormation template demonstrates the installation and configuration of `ebs-bootstrap` on an **Ubuntu Nitro EC2 Instance**. The instance has both an EBS and an Instance Store Volume attached, and the setup is performed using `cloud-init`.
 
-Resources:
-  Instance:
-    Type: AWS::EC2::Instance
-  Properties:
-    ...
-    ImageId: !Ref LatestUbuntuAmi
-    InstanceType: m5ad.large  # Nitro Instance Type
-    Volumes:
-      - Device: /dev/sdb  # EBS Volume
-        VolumeId: !ImportValue StatefulVolumeId
-    BlockDeviceMappings:
-      - DeviceName: /dev/sdh  # Instance Store
-        VirtualName: ephemeral0
-    UserData:
-      Fn::Base64: !Sub
-        - |+
-          #cloud-config
-          write_files:
-            - content: |
-                devices:
-                  /dev/sdb:
-                    fs: ${FileSystem}
-                    mountPoint: /mnt/ebs
-                    mountOptions: ${MountOptions}
-                    user: ubuntu
-                    group: ubuntu
-                    permissions: 755
-                    label: stateful
-                    mode: healthcheck
-                  /dev/sdh:
-                    fs: ${FileSystem}
-                    mountPoint: /mnt/instance-store
-                    mountOptions: ${MountOptions}
-                    user: ubuntu
-                    group: ubuntu
-                    permissions: 755
-                    label: ephemeral
-                    mode: force
-              path: /etc/ebs-bootstrap/config.yml
-          bootcmd:
-            - curl -L -o /tmp/ebs-bootstrap "${EbsBootstrapUrlPrefix}-$(uname -m)"
-            - install -m755 /tmp/ebs-bootstrap /usr/local/sbin/ebs-bootstrap
-          runcmd:
-            - /usr/local/sbin/ebs-bootstrap
-          mounts:
-            - [ "LABEL=stateful", /mnt/ebs, ${FileSystem}, "${MountOptions}", "0", "2"]
-        - FileSystem: ext4
-          MountOptions: defaults,nofail,x-systemd.device-timeout=5
-          EbsBootstrapUrlPrefix: https://github.com/reecetech/ebs-bootstrap/releases/latest/download/ebs-bootstrap-linux
-```
-
-Assuming this is the very first launch, `ebs-bootstrap` would refuse to perform any modifications associated to the EBS device as it was assigned the `healthcheck` mode. However, we can temporarily override this behaviour with the `-mode=prompt` option. This allows the Platform Engineer to approve any suggested changes by `ebs-bootstrap`.
+On the first launch, `ebs-bootstrap` would refuse to perform any modifications to the EBS volume as it was assigned the `healthcheck` mode. However, we can temporarily override this behaviour with the `-mode=prompt` option. This allows the Platform Engineer to approve any suggested changes by `ebs-bootstrap`.
 
 ```
-[~] sudo /usr/local/sbin/ebs-bootstrap -mode=prompt
+
+[~] sudo ebs-bootstrap -mode=prompt
 🔵 /dev/nvme1n1: Detected Nitro-based AWS NVMe device => /dev/sdb
 🔵 /dev/nvme2n1: Detected Nitro-based AWS NVMe device => /dev/sdh
 🟠 Formatting larger disks can take several seconds ⌛
@@ -149,7 +97,7 @@ nvme0n1                                                            8G
 ├─nvme0n1p14                                                       4M
 └─nvme0n1p15 vfat   /boot/efi                   UEFI             106M
 nvme1n1      ext4   /mnt/ebs                    stateful          10G
-nvme2n1      ext4   /mnt/instance-store         ephemeral       69.9G
+nvme2n1      ext4   /mnt/instance-store         ephemeral         155G
 
 [~] ls -la /mnt
 total 16
@@ -159,7 +107,7 @@ drwxr-xr-x  3 ubuntu ubuntu 4096 Jan  8 04:57 ebs
 drwxr-xr-x  3 ubuntu ubuntu 4096 Jan  8 04:39 instance-store
 ```
 
-The `mounts` module of `cloud-init` will create an entry in `/etc/fstab` for the EBS volume. The EBS volume, now labelled `stateful`, will be mounted to `/mnt/ebs` on **future reboots**. Despite device names being unstable because of the dynamical allocation behaviour of the Nitro NVMe driver, their respective labels remain stable across reboots.
+The `mounts` module of `cloud-init` will create an entry in `/etc/fstab` for the EBS volume. The EBS volume, now labelled `stateful`, will be mounted to `/mnt/ebs`, by the operating-system, on **future reboots**. Despite device names being unstable because of the dynamic allocation behaviour of the Nitro NVMe driver, their respective labels remain stable across reboots.
 ```
 [~] cat /etc/fstab
 LABEL=cloudimg-rootfs	/	 ext4	defaults,discard	0 1
@@ -169,35 +117,32 @@ LABEL=stateful	/mnt/ebs	ext4	defaults,nofail,x-systemd.device-timeout=5,comment=
 
 ### `systemd`
 
-A potential way of operating `ebs-bootstrap` is through a `systemd` service. This is so we can configure it as a `oneshot` service type that executes after the file system is ready and `clout-init.service` writes any config files to disk. The latter is essential as `ebs-bootstrap` consumes a config file that is located at `/etc/ebs-boostrap/config.yml` by default. 
-
-`ExecStopPost=-...` can point towards a script that is executed when the `ebs-bootstrap` service exits on either success or failure. This is a suitable place to include logic to notify an individual that the configured devices failed their relevant healthchecks and the underlying application failed to launch in the process.
+One way to utilise `ebs-bootstrap` is by employing a **oneshot** `systemd` service. This approach allows us to activate `ebs-bootstrap` during system startup, guaranteeing that any EBS or Instance Store volumes are formatted and mounted whenever the system is rebooted. This `systemd` unit file can either be generated during the [cloud-init](https://github.com/reecetech/ebs-bootstrap/blob/main/examples/cloudformation.yml#L97-L112) phase or more preferably baked into a Golden AMI.
 
 ```ini
 [Unit]
-Description=EBS Bootstrap
-After=local-fs.target cloud-init.service
+Description=ebs-bootstrap
+After=local-fs.target cloud-init.service  # Run after /etc/fstab (local-fs.target) and write_files (cloud-init.service)
 
 [Service]
 Type=oneshot
 RemainAfterExit=true
-StandardInput=null
+StandardInput=null                        # Disables stdin to ensure error when prompted for an input
 ExecStart=/usr/local/sbin/ebs-bootstrap
-PrivateMounts=no
-MountFlags=shared
-ExecStopPost=-/etc/ebs-bootstrap/post-hook.sh
+PrivateMounts=no                          # Prevents private mount namespaces
+MountFlags=shared                         # Shares mounts to other processes
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-It is then possible to configure another `systemd` service to only start if the `ebs-bootstrap` service is successful. Certain databases support the ability to spread database chunks across multiple devices that need to be mounted to pre-defined directories with the correct ownership and permissions.
+It is then possible to configure another `systemd` service to **only** start if the `ebs-bootstrap` service is successful. Certain databases support the ability to spread database chunks across multiple block devices that need to be mounted to pre-defined directories with the correct ownership and permissions enforced.
 
-In this particular use-case, the database could be configured as a `systemd` service that relies on the `ebs-bootstrap.service` to succeed before attempting to start. This can be achieved by specifiying `ebs-boostrap.service` as a dependency in the `Requires=` and `After=` parameters.
+In this particular use-case, the database could be configured as a `systemd` service that relies on the `ebs-bootstrap.service` to succeed before attempting to start. This can be achieved by specifying `ebs-boostrap.service` as a dependency in the `Requires=` and `After=` parameters.
 
 ```ini
 [Unit]
-Description=Example Database
+Description=example-database
 Wants=network-online.target
 Requires=ebs-bootstrap.service
 After=network.target network-online.target ebs-bootstrap.service
