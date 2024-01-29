@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  Deploys an EC2 Instance with an EBS and an Instance Store volume. To
+  reduce cost of operating this example, we use Graviton-supported Instance
+  types and AMI
+
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: Must be the name of an existing EC2 KeyPair.
+  AvailabilityZone:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Availability Zone where EBS Volume will be created
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: The Subnet ID where the EC2 instance will be launched.
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: The VPC ID where the EC2 instance will be launched.
+  NitroInstanceType:
+    Type: String
+    Default: c6gd.medium
+    Description: Instance Type
+    ConstraintDescription: |
+      For this example, must be a Nitro Instance Type with at least one Instance Store volume
+  IngressSshCidr:
+    Description: The IP address range that can be used to SSH to the EC2 instances
+    Type: String
+    MinLength: 9
+    MaxLength: 18
+    Default: 0.0.0.0/0
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: Must be a valid IP CIDR range of the form x.x.x.x/x.
+  LatestUbuntuAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/20.04/stable/current/arm64/hvm/ebs-gp2/ami-id
+
+Resources:
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for EC2 instance
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - CidrIp: !Ref IngressSshCidr
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+  EbsVolume:
+    Type: AWS::EC2::Volume
+    Properties: 
+      Size: 10
+      AvailabilityZone: !Ref AvailabilityZone
+    DeletionPolicy: Delete
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref KeyName
+      ImageId: !Ref LatestUbuntuAmi
+      InstanceType: !Ref NitroInstanceType
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      SubnetId: !Ref SubnetId
+      Volumes:
+        - Device: "/dev/sdb" # EBS
+          VolumeId: !Ref EbsVolume
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sdh"
+          VirtualName: "ephemeral0" # Instance Store volume
+      UserData:
+        Fn::Base64: !Sub
+          - |+
+            #cloud-config
+            write_files:
+              - content: |
+                  devices:
+                    /dev/sdb:
+                      fs: ${FileSystem}
+                      mountPoint: /mnt/ebs
+                      mountOptions: ${MountOptions}
+                      user: ubuntu
+                      group: ubuntu
+                      permissions: 755
+                      label: stateful
+                      mode: healthcheck
+                    /dev/sdh:
+                      fs: ${FileSystem}
+                      mountPoint: /mnt/instance-store
+                      mountOptions: ${MountOptions}
+                      user: ubuntu
+                      group: ubuntu
+                      permissions: 755
+                      label: ephemeral
+                      mode: force
+                path: /etc/ebs-bootstrap/config.yml
+              - content: |
+                  [Unit]
+                  Description=ebs-bootstrap
+                  After=local-fs.target cloud-init.service
+
+                  [Service]
+                  Type=oneshot
+                  RemainAfterExit=true
+                  StandardInput=null
+                  ExecStart=/usr/local/sbin/ebs-bootstrap
+                  PrivateMounts=no
+                  MountFlags=shared
+
+                  [Install]
+                  WantedBy=multi-user.target
+                path: /etc/systemd/system/ebs-bootstrap.service
+            bootcmd:
+              - curl -L -o /tmp/ebs-bootstrap "${EbsBootstrapUrlPrefix}-$(uname -m)"
+              - install -m755 /tmp/ebs-bootstrap /usr/local/sbin/ebs-bootstrap
+            runcmd:
+              - systemctl daemon-reload
+              - systemctl enable ebs-bootstrap --now
+            mounts:
+              - [ "LABEL=stateful", /mnt/ebs, ${FileSystem}, "${MountOptions}", "0", "2"]
+          - FileSystem: ext4
+            MountOptions: defaults,nofail,x-systemd.device-timeout=5
+            EbsBootstrapUrlPrefix: https://github.com/reecetech/ebs-bootstrap/releases/latest/download/ebs-bootstrap-linux
+
+Outputs:
+  InstanceId:
+    Description: Instance Id of the newly created EC2 instance
+    Value: !Ref Instance
+  PrivateIP:
+    Description: Private IP address of the newly created EC2 instance
+    Value: !GetAtt [Instance, PrivateIp]

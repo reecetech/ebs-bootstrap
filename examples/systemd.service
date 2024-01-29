@@ -1,0 +1,14 @@
+[Unit]
+Description=ebs-bootstrap
+After=local-fs.target cloud-init.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+StandardInput=null
+ExecStart=/usr/local/sbin/ebs-bootstrap
+PrivateMounts=no
+MountFlags=shared
+
+[Install]
+WantedBy=multi-user.target
