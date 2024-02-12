@@ -72,8 +72,8 @@ On the first launch, `ebs-bootstrap` would refuse to perform any modifications t
 ```
 
 [~] sudo ebs-bootstrap -mode=prompt
-🔵 /dev/nvme1n1: Detected Nitro-based AWS NVMe device => /dev/sdb
-🔵 /dev/nvme2n1: Detected Nitro-based AWS NVMe device => /dev/sdh
+🔵 Nitro NVMe detected: /dev/nvme1n1 -> /dev/sdb
+🔵 Nitro NVMe detected: /dev/nvme2n1 -> /dev/sdh
 🟠 Formatting larger disks can take several seconds ⌛
 🟣 Would you like to format /dev/nvme1n1 to ext4? (y/n): y
 ⭐ Successfully formatted /dev/nvme1n1 to ext4
