@@ -13,8 +13,8 @@ const (
 )
 
 const (
-	Space = 0x20
-	Null  = 0x00
+	SpaceByte = 0x20
+	NullByte  = 0x00
 )
 
 func TestGetBlockDeviceMapping(t *testing.T) {
@@ -24,7 +24,6 @@ func TestGetBlockDeviceMapping(t *testing.T) {
 		VendorId           uint16
 		ModelNumber        string
 		BlockDevice        string
-		BlockDevicePadding byte
 		ExpectedOutput     string
 		ExpectedError      error
 	}{
@@ -34,7 +33,6 @@ func TestGetBlockDeviceMapping(t *testing.T) {
 			VendorId:           AMZN_NVME_VID,
 			ModelNumber:        AMZN_NVME_EBS_MN,
 			BlockDevice:        "sdb",
-			BlockDevicePadding: Space,
 			ExpectedOutput:     "/dev/sdb",
 			ExpectedError:      nil,
 		},
@@ -44,7 +42,6 @@ func TestGetBlockDeviceMapping(t *testing.T) {
 			VendorId:           AMZN_NVME_VID,
 			ModelNumber:        AMZN_NVME_EBS_MN,
 			BlockDevice:        "/dev/sdb",
-			BlockDevicePadding: Space,
 			ExpectedOutput:     "/dev/sdb",
 			ExpectedError:      nil,
 		},
@@ -54,7 +51,6 @@ func TestGetBlockDeviceMapping(t *testing.T) {
 			VendorId:           AMZN_NVME_VID,
 			ModelNumber:        AMZN_NVME_INS_MN,
 			BlockDevice:        "ephemeral0:sdb",
-			BlockDevicePadding: 0x53,
 			ExpectedOutput:     "/dev/sdb",
 			ExpectedError:      nil,
 		},
@@ -64,7 +60,6 @@ func TestGetBlockDeviceMapping(t *testing.T) {
 			VendorId:           AMZN_NVME_VID,
 			ModelNumber:        AMZN_NVME_INS_MN,
 			BlockDevice:        "ephemeral0:sdb\x00a",
-			BlockDevicePadding: Null,
 			ExpectedOutput:     "/dev/sdb",
 			ExpectedError:      nil,
 		},
@@ -74,9 +69,8 @@ func TestGetBlockDeviceMapping(t *testing.T) {
 			VendorId:           AMZN_NVME_VID,
 			ModelNumber:        AMZN_NVME_INS_MN,
 			BlockDevice:        "ephemeral0:none",
-			BlockDevicePadding: Null,
-			ExpectedOutput:     "",
-			ExpectedError:      fmt.Errorf("🔴 /dev/nvme1n1: Must provide a device name to the Instance Store NVMe block device mapping"),
+			ExpectedOutput:     "/dev/ephemeral0",
+			ExpectedError:      nil,
 		},
 		{
 			Name:               "Instance Store NVMe Device + Pattern Mismatch",
@@ -84,9 +78,8 @@ func TestGetBlockDeviceMapping(t *testing.T) {
 			VendorId:           AMZN_NVME_VID,
 			ModelNumber:        AMZN_NVME_INS_MN,
 			BlockDevice:        "ephemeral0:vdb",
-			BlockDevicePadding: Null,
 			ExpectedOutput:     "",
-			ExpectedError:      fmt.Errorf("🔴 /dev/nvme1n1: Instance-store vendor specific metadata did not match pattern . Pattern=^ephemeral[0-9]:(sd[a-z]|none), Actual=ephemeral0:vdb"),
+			ExpectedError:      fmt.Errorf("🔴 /dev/nvme1n1: Instance-store vendor specific metadata did not match pattern. Pattern=^(ephemeral[0-9]):(sd[a-z]|none), Actual=ephemeral0:vdb"),
 		},
 		{
 			Name:               "Invalid NVMe Device (Unsupported Vendor ID)",
@@ -94,7 +87,6 @@ func TestGetBlockDeviceMapping(t *testing.T) {
 			VendorId:           UNSUPPORTED_NVME_VID,
 			ModelNumber:        AMZN_NVME_EBS_MN,
 			BlockDevice:        "",
-			BlockDevicePadding: Null,
 			ExpectedOutput:     "",
 			ExpectedError:      fmt.Errorf("🔴 /dev/nvme1n1 is not an AWS-managed NVME device"),
 		},
@@ -104,20 +96,21 @@ func TestGetBlockDeviceMapping(t *testing.T) {
 			VendorId:           AMZN_NVME_VID,
 			ModelNumber:        UNSUPPORTED_NVME_MN,
 			BlockDevice:        "",
-			BlockDevicePadding: Null,
 			ExpectedOutput:     "",
 			ExpectedError:      fmt.Errorf("🔴 /dev/nvme1n1 is not an AWS-managed NVME device"),
 		},
 	}
 	for _, subtest := range subtests {
 		t.Run(subtest.Name, func(t *testing.T) {
+			vsp, err := vendorSpecificPadding(subtest.ModelNumber)
+			utils.ExpectErr("vendorSpecificPadding()", t, false, err)
 			nd := &NVMeIoctlResult{
 				Name: subtest.Device,
 				IdCtrl: nvmeIdentifyController{
 					Vid: subtest.VendorId,
-					Mn:  modelNumber(subtest.ModelNumber, Space),
+					Mn:  modelNumber(subtest.ModelNumber, SpaceByte),
 					Vs: nvmeIdentifyControllerAmznVS{
-						Bdev: blockDevice(subtest.BlockDevice, subtest.BlockDevicePadding),
+						Bdev: blockDevice(subtest.BlockDevice, vsp),
 					},
 				},
 			}
@@ -151,4 +144,19 @@ func blockDevice(input string, padding byte) [32]byte {
 		}
 	}
 	return bd
+}
+
+// The padding byte used for the Vendor Specific section depends on whether the NVMe Block
+// device is an EBS (Space) or Instance Store (Null) Volume
+func vendorSpecificPadding(modelNumber string) (byte, error) {
+	switch modelNumber {
+	case AMZN_NVME_EBS_MN:
+		return SpaceByte, nil
+	case AMZN_NVME_INS_MN:
+		return NullByte, nil
+	case UNSUPPORTED_NVME_MN:
+		return NullByte, nil
+	default:
+		return NullByte, fmt.Errorf("🔴 %s: Could not determine vendor specific padding", modelNumber)
+	}
 }
