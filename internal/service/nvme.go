@@ -163,16 +163,19 @@ func (ns *AwsNitroNVMeService) getBlockDeviceMapping(nir *NVMeIoctlResult) (stri
 		// Vendor Specfic (vs)
 		vs := strings.TrimRightFunc(string(nir.IdCtrl.Vs.Bdev[:]), ns.trimBlockDevice)
 		// Regex Block device Mapping
-		rebdm := regexp.MustCompile(`^ephemeral[0-9]:(sd[a-z]|none)`)
+		rebdm := regexp.MustCompile(`^(ephemeral[0-9]):(sd[a-z]|none)`)
 		// Match Block Device Mapping
 		mbdm := rebdm.FindStringSubmatch(vs)
-		if len(mbdm) != 2 {
-			return "", fmt.Errorf("🔴 %s: Instance-store vendor specific metadata did not match pattern . Pattern=%s, Actual=%s", nir.Name, rebdm.String(), vs)
+		if len(mbdm) != 3 {
+			return "", fmt.Errorf("🔴 %s: Instance-store vendor specific metadata did not match pattern. Pattern=%s, Actual=%s", nir.Name, rebdm.String(), vs)
 		}
-		if mbdm[1] == "none" {
-			return "", fmt.Errorf("🔴 %s: Must provide a device name to the Instance Store NVMe block device mapping", nir.Name)
+		// If the block device mapping is "none", then lets default to assigning the
+		// the block device mapping to the match result from ephemeral[0-9]
+		if mbdm[2] == "none" {
+			bdm = mbdm[1]
+		} else {
+			bdm = mbdm[2]
 		}
-		bdm = mbdm[1]
 	}
 	if len(bdm) == 0 {
 		return "", fmt.Errorf("🔴 %s is not an AWS-managed NVME device", nir.Name)
