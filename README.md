@@ -70,7 +70,6 @@ From the perspective of a **sceptical** Platforms Engineer, you do not mind dele
 On the first launch, `ebs-bootstrap` would refuse to perform any modifications to the EBS volume as it was assigned the `healthcheck` mode. However, we can temporarily override this behaviour with the `-mode=prompt` option. This allows the Platform Engineer to approve any suggested changes by `ebs-bootstrap`.
 
 ```
-
 [~] sudo ebs-bootstrap -mode=prompt
 🔵 Nitro NVMe detected: /dev/nvme1n1 -> /dev/sdb
 🔵 Nitro NVMe detected: /dev/nvme2n1 -> /dev/sdh
