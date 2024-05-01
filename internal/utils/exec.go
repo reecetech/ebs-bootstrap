@@ -10,18 +10,34 @@ import (
 type Binary string
 
 const (
+	// Block device binaries
+	BlockDev  Binary = "blockdev"
 	Lsblk     Binary = "lsblk"
-	MkfsExt4  Binary = "mkfs.ext4"
+
+	// EXT binaries
 	E2Label   Binary = "e2label"
-	MkfsXfs   Binary = "mkfs.xfs"
-	XfsAdmin  Binary = "xfs_admin"
+	MkfsExt4  Binary = "mkfs.ext4"
+	Resize2fs Binary = "resize2fs"
+	Tune2fs   Binary = "tune2fs"
+
+	// LVM binaries
+	Lvchange  Binary = "lvchange"
+	Lvcreate  Binary = "lvcreate"
+	Lvdisplay Binary = "lvdisplay"
+	Pvcreate  Binary = "pvcreate"
+	Pvdisplay Binary = "pvdisplay"
+	Vgcreate  Binary = "vgcreate"
+	Vgdisplay Binary = "vgdisplay"
+
+	// Mount point binaries
 	Mount     Binary = "mount"
 	Umount    Binary = "umount"
-	BlockDev  Binary = "blockdev"
-	Tune2fs   Binary = "tune2fs"
-	XfsInfo   Binary = "xfs_info"
-	Resize2fs Binary = "resize2fs"
+
+	// XFS binaries
+	MkfsXfs   Binary = "mkfs.xfs"
+	XfsAdmin  Binary = "xfs_admin"
 	XfsGrowfs Binary = "xfs_growfs"
+	XfsInfo   Binary = "xfs_info"
 )
 
 type RunnerFactory interface {
