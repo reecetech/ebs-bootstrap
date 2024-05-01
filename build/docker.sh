@@ -11,6 +11,7 @@ ARCHS=("amd64" "arm64")
 function map_depedencies() {    
     # Check if Mac-GNU alternative binaries are installed
     getopt_cmd="getopt"
+    tar_cmd="tar"
 
     if [[ "$(uname)" == "Darwin" ]] ; then
         getopt_cmd="$(brew --prefix)/opt/gnu-getopt/bin/getopt"
@@ -19,6 +20,13 @@ function map_depedencies() {
                 ERROR: GNU-enhanced version of getopt not installed
                     Run \"brew install gnu-getopt\""
             exit 2
+        fi
+        tar_cmd="$(brew --prefix)/opt/gnu-tar/bin/gtar"
+        if [[ ! -x "$(type -P "${tar_cmd}")" ]] ; then
+            echo >&2 "
+                ERROR: GNU version of tar not installed
+                    Run \"brew install gnu-tar\""
+            exit 3
         fi
     fi
 }
@@ -48,7 +56,7 @@ function copy_binaries() {
         name="$(get_binary_name "${arch}")"
         id=$(docker create "${IMAGE}:${arch}")
         # docker cp produces a tar stream
-        docker cp "$id:/app/ebs-bootstrap" - | tar xf - --transform "s/ebs-bootstrap/${name}/"
+        docker cp "$id:/app/ebs-bootstrap" - | "${tar_cmd}" xf - --transform "s/ebs-bootstrap/${name}/"
         docker rm -v "$id"
         echo "🟢 Built and copied binary: ${name}"
     done
