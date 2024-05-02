@@ -37,11 +37,34 @@ func main() {
 	dmb := backend.NewLinuxDeviceMetricsBackend(lds, fssf)
 	dae := action.NewDefaultActionExecutor()
 
-	// Modify Config
-	modifiers := []config.Modifier{
+	// Modify Config for AWS Nitro
+	nitroModifiers := []config.Modifier{
 		config.NewAwsNVMeDriverModifier(ans, lds),
 	}
-	for _, m := range modifiers {
+	for _, m := range nitroModifiers {
+		checkError(m.Modify(c))
+	}
+
+	// Validate Config for block devices only
+	nitroValidators := []config.Validator{
+		config.NewDeviceValidator(lds),
+	}
+	for _, v := range nitroValidators {
+		checkError(v.Validate(c))
+	}
+
+  // Layer to handle LVM
+	lvmLe := layer.NewExponentialBackoffLayerExecutor(c, dae, layer.DefaultExponentialBackoffParameters())
+	lvmLayers := []layer.Layer{
+	  // to be implemented
+	}
+	checkError(lvmLe.Execute(lvmLayers))	
+
+	// Modify Config for LVM
+	lvmModifiers := []config.Modifier{
+		// to be implemented
+	}
+	for _, m := range lvmModifiers {
 		checkError(m.Modify(c))
 	}
 
