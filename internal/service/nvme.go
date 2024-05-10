@@ -163,7 +163,7 @@ func (ns *AwsNitroNVMeService) getBlockDeviceMapping(nir *NVMeIoctlResult) (stri
 		// Vendor Specfic (vs)
 		vs := strings.TrimRightFunc(string(nir.IdCtrl.Vs.Bdev[:]), ns.trimBlockDevice)
 		// Regex Block device Mapping
-		rebdm := regexp.MustCompile(`^(ephemeral[0-9]):(sd[a-z]|none)`)
+		rebdm := regexp.MustCompile(`^(ephemeral[0-9]):(sd[a-z]|xvd[a-z]|none)`)
 		// Match Block Device Mapping
 		mbdm := rebdm.FindStringSubmatch(vs)
 		if len(mbdm) != 3 {
