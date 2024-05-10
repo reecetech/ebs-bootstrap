@@ -79,7 +79,7 @@ func TestGetBlockDeviceMapping(t *testing.T) {
 			ModelNumber:        AMZN_NVME_INS_MN,
 			BlockDevice:        "ephemeral0:vdb",
 			ExpectedOutput:     "",
-			ExpectedError:      fmt.Errorf("🔴 /dev/nvme1n1: Instance-store vendor specific metadata did not match pattern. Pattern=^(ephemeral[0-9]):(sd[a-z]|none), Actual=ephemeral0:vdb"),
+			ExpectedError:      fmt.Errorf("🔴 /dev/nvme1n1: Instance-store vendor specific metadata did not match pattern. Pattern=^(ephemeral[0-9]):(sd[a-z]|xvd[a-z]|none), Actual=ephemeral0:vdb"),
 		},
 		{
 			Name:               "Invalid NVMe Device (Unsupported Vendor ID)",
