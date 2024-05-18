@@ -53,6 +53,7 @@ func main() {
 	// LVM Layers
 	lvmLayers := []layer.Layer{
 		layer.NewCreatePhysicalVolumeLayer(db, lb),
+		layer.NewCreateVolumeGroupLayer(lb),
 	}
 	checkError(le.Execute(lvmLayers))
 
@@ -89,6 +90,7 @@ func main() {
 		layer.NewChangePermissionsLayer(fb),
 	}
 	checkError(le.Execute(layers))
+	log.Println("🟢 Passed all validation checks")
 }
 
 func checkError(err error) {

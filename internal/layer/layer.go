@@ -96,7 +96,6 @@ func (le *ExponentialBackoffLayerExecutor) Execute(layers []Layer) error {
 			return err
 		}
 	}
-	log.Println("🟢 Passed all validation checks")
 	return nil
 }
 

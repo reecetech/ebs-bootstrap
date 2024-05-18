@@ -22,7 +22,10 @@ const (
 	XfsInfo   Binary = "xfs_info"
 	Resize2fs Binary = "resize2fs"
 	XfsGrowfs Binary = "xfs_growfs"
+	Pvs       Binary = "pvs"
 	PvCreate  Binary = "pvcreate"
+	Vgs       Binary = "vgs"
+	VgCreate  Binary = "vgcreate"
 )
 
 type RunnerFactory interface {

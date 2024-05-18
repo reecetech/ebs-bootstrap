@@ -39,3 +39,16 @@ $ sudo pvs -o pv_name,pv_size,dev_size --units B --nosuffix
   /dev/vda3  31079792640B 31082938368B
   /dev/vdb   10733223936B 10737418240B
 ```
+
+# LVM Backend
+
+# Volume Group Names are unique system-wide
+# Logical Group Names are unique within the scope of the Volume Group
+```
+# Graph Based Data Structure
+"device:xvdb" -> "pv:xvdb"
+"pv:xvdb" -> "vg:ifmx-etc"
+"pv:xvdc" -> "vg:ifmx-etc"
+"vg:ifmx-etc" -> "lv:ifmx-etc:pv:ifmx-etc"
+"vg:ifmx-etc" -> "lv:ifmx-etc-2:pv:ifmx-etc"
+```
