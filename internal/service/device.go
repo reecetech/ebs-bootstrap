@@ -22,14 +22,12 @@ type LinuxDeviceService struct {
 }
 
 type LsblkBlockDeviceResponse struct {
-	BlockDevices []LsblkBlockDevice `json:"blockdevices"`
-}
-
-type LsblkBlockDevice struct {
-	Name       *string `json:"name"`
-	Label      *string `json:"label"`
-	FsType     *string `json:"fstype"`
-	MountPoint *string `json:"mountpoint"`
+	BlockDevices []struct {
+		Name       *string `json:"name"`
+		Label      *string `json:"label"`
+		FsType     *string `json:"fstype"`
+		MountPoint *string `json:"mountpoint"`
+	} `json:"blockdevices"`
 }
 
 func NewLinuxDeviceService(rc utils.RunnerFactory) *LinuxDeviceService {

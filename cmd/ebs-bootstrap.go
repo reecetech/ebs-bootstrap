@@ -21,6 +21,7 @@ func main() {
 	lds := service.NewLinuxDeviceService(erf)
 	uos := service.NewUnixOwnerService()
 	ans := service.NewAwsNitroNVMeService()
+	ls := service.NewLinuxLvmService(erf)
 	fssf := service.NewLinuxFileSystemServiceFactory(erf)
 
 	// Warnings
@@ -35,13 +36,31 @@ func main() {
 	fb := backend.NewLinuxFileBackend(ufs)
 	ub := backend.NewLinuxOwnerBackend(uos)
 	dmb := backend.NewLinuxDeviceMetricsBackend(lds, fssf)
+	lb := backend.NewLinuxLvmBackend(ls)
+
+	// Executors
 	dae := action.NewDefaultActionExecutor()
+	le := layer.NewExponentialBackoffLayerExecutor(c, dae, layer.DefaultExponentialBackoffParameters())
 
 	// Modify Config
 	modifiers := []config.Modifier{
 		config.NewAwsNVMeDriverModifier(ans, lds),
 	}
 	for _, m := range modifiers {
+		checkError(m.Modify(c))
+	}
+
+	// LVM Layers
+	lvmLayers := []layer.Layer{
+		layer.NewCreatePhysicalVolumeLayer(db, lb),
+	}
+	checkError(le.Execute(lvmLayers))
+
+	// LVM Modifiers
+	lvmModifiers := []config.Modifier{
+		config.NewLvmModifier(),
+	}
+	for _, m := range lvmModifiers {
 		checkError(m.Modify(c))
 	}
 
@@ -60,7 +79,6 @@ func main() {
 	}
 
 	// Layers
-	le := layer.NewExponentialBackoffLayerExecutor(c, dae, layer.DefaultExponentialBackoffParameters())
 	layers := []layer.Layer{
 		layer.NewFormatDeviceLayer(db),
 		layer.NewLabelDeviceLayer(db),

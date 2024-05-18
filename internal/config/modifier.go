@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"strings"
 
@@ -58,6 +59,31 @@ func (andm *AwsNitroNVMeModifier) Modify(c *Config) error {
 		//		/dev/nvme0n1 => *config.Device (a)
 		c.Devices[name] = cd
 		delete(c.Devices, bdm)
+	}
+	return nil
+}
+
+type LvmModifier struct{}
+
+func NewLvmModifier() *LvmModifier {
+	return &LvmModifier{}
+}
+
+func (lm *LvmModifier) Modify(c *Config) error {
+	// Fetch a copy of the original keys as we are updating
+	// the config in-place and it is unsafe to iterate over it
+	// directly
+	keys := make([]string, len(c.Devices))
+	for name := range c.Devices {
+		keys = append(keys, name)
+	}
+	for _, key := range keys {
+		device := c.Devices[key]
+		if len(device.Lvm) > 0 {
+			ldn := fmt.Sprintf("/dev/%s/%s", device.Lvm, device.Lvm)
+			c.Devices[ldn] = device
+			delete(c.Devices, key)
+		}
 	}
 	return nil
 }

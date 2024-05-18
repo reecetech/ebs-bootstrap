@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	DefaultMode         = model.Healthcheck
-	DefaultMountOptions = model.MountOptions("defaults")
+	DefaultMode           = model.Healthcheck
+	DefaultMountOptions   = model.MountOptions("defaults")
+	DefaultLvmConsumption = 100
 )
 
 type Flag struct {
@@ -22,6 +23,7 @@ type Flag struct {
 	MountOptions    string
 	ResizeFs        bool
 	ResizeThreshold float64
+	LvmConsumption  int
 }
 
 type Device struct {
@@ -31,6 +33,7 @@ type Device struct {
 	Group       string                `yaml:"group"`
 	Label       string                `yaml:"label"`
 	Permissions model.FilePermissions `yaml:"permissions"`
+	Lvm         string                `yaml:"lvm"`
 	Options     `yaml:",inline"`
 }
 
@@ -40,6 +43,7 @@ type Options struct {
 	MountOptions    model.MountOptions `yaml:"mountOptions"`
 	ResizeFs        bool               `yaml:"resizeFs"`
 	ResizeThreshold float64            `yaml:"resizeThreshold"`
+	LvmConsumption  int                `yaml:"lvmConsumption"`
 }
 
 // We don't export "overrides" as this is an attribute that is used
@@ -98,6 +102,7 @@ func parseFlags(program string, args []string) (*Flag, error) {
 	flags.StringVar(&f.MountOptions, "mount-options", "", "override for mount options")
 	flags.BoolVar(&f.ResizeFs, "resize-fs", false, "override for resize filesystem")
 	flags.Float64Var(&f.ResizeThreshold, "resize-threshold", 0, "override for resize threshold")
+	flags.IntVar(&f.LvmConsumption, "lvm-consumption", 0, "override for lvm consumption")
 
 	// Actually parse the flag
 	err := flags.Parse(args)
@@ -179,4 +184,21 @@ func (c *Config) GetResizeThreshold(name string) float64 {
 		return cd.ResizeThreshold
 	}
 	return c.Defaults.ResizeThreshold
+}
+
+func (c *Config) GetLvmConsumption(name string) int {
+	cd, found := c.Devices[name]
+	if !found {
+		return DefaultLvmConsumption
+	}
+	if c.overrides.LvmConsumption > 0 {
+		return c.overrides.LvmConsumption
+	}
+	if cd.LvmConsumption > 0 {
+		return cd.LvmConsumption
+	}
+	if c.Defaults.LvmConsumption > 0 {
+		return c.Defaults.LvmConsumption
+	}
+	return DefaultLvmConsumption
 }

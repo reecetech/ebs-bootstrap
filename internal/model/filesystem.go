@@ -8,6 +8,7 @@ const (
 	Unformatted FileSystem = ""
 	Ext4        FileSystem = "ext4"
 	Xfs         FileSystem = "xfs"
+	Lvm         FileSystem = "LVM2_member"
 )
 
 func (fs FileSystem) String() string {
@@ -20,7 +21,7 @@ func (fs FileSystem) String() string {
 func ParseFileSystem(s string) (FileSystem, error) {
 	fst := FileSystem(s)
 	switch fst {
-	case Unformatted, Ext4, Xfs:
+	case Unformatted, Ext4, Xfs, Lvm:
 		return fst, nil
 	default:
 		return fst, fmt.Errorf("File system '%s' is not supported", fst.String())
