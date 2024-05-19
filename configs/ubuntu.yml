@@ -1,4 +1,9 @@
+defaults:
+  lvmConsumption: 80
 devices:
   /dev/vdb:
     fs: xfs
     lvm: ifmx-etc
+  /dev/vdc:
+    fs: xfs
+    lvm: ifmx-var

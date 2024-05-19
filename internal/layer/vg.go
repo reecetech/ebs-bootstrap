@@ -24,39 +24,24 @@ func (cvgl *CreateVolumeGroupLayer) Modify(c *config.Config) ([]action.Action, e
 		if len(cd.Lvm) == 0 {
 			continue
 		}
+		vg := cvgl.lvmBackend.SearchVolumeGroup(name)
+		if vg != nil && vg.Name != cd.Lvm {
+			return nil, fmt.Errorf("🔴 %s: Physical volume %s already has volume group %s associated", name, name, vg.Name)
+		}
 
-		vg, _ := cvgl.lvmBackend.GetVolumeGroup(cd.Lvm)
-
-		if vg != nil {
-			pvs, err := cvgl.lvmBackend.SearchPhysicalVolumes(vg)
-			if err != nil {
-				return nil, err
+		vgs := cvgl.lvmBackend.GetVolumeGroups(cd.Lvm)
+		if len(vgs) == 1 {
+			if vgs[0].PhysicalVolume == name {
+				continue
 			}
-			if len(pvs) == 1 {
-				if pvs[0].Name == name {
-					continue
-				}
-				return nil, fmt.Errorf("🔴 %s: Volume group %s belongs to the incorrect physical volume. Expected=%s, Actual=%s", name, vg.Name, name, pvs[0].Name)
-			}
-			return nil, fmt.Errorf("🔴 %s: Cannot manage a volume group %s with more than one physical volumes associated", name, vg.Name)
+			return nil, fmt.Errorf("🔴 %s: Volume group %s does not belong to physical volume %s", name, cd.Lvm, name)
 		}
-
-		pv, err := cvgl.lvmBackend.GetPhysicalVolume(name)
-		if err != nil {
-			return nil, err
-		}
-
-		vg, err = cvgl.lvmBackend.SearchVolumeGroup(pv)
-		if err != nil {
-			return nil, err
-		}
-
-		if vg != nil {
-			return nil, fmt.Errorf("🔴 %s: Volume group %s already exists on physical volume %s", name, vg.Name, pv.Name)
+		if len(vgs) > 1 {
+			return nil, fmt.Errorf("🔴 %s: Cannot manage volume group %s with more than one physical volumes associated", name, cd.Lvm)
 		}
 
 		mode := c.GetMode(name)
-		a := cvgl.lvmBackend.CreateVolumeGroup(cd.Lvm, pv.Name)
+		a := cvgl.lvmBackend.CreateVolumeGroup(cd.Lvm, name)
 		actions = append(actions, a.SetMode(mode))
 	}
 	return actions, nil
@@ -67,10 +52,17 @@ func (cvgl *CreateVolumeGroupLayer) Validate(c *config.Config) error {
 		if len(cd.Lvm) == 0 {
 			continue
 		}
-		_, err := cvgl.lvmBackend.GetVolumeGroup(cd.Lvm)
-		if err != nil {
-			return fmt.Errorf("🔴 %s: Failed volume group validation checks. Volume group %s does not exist", name, cd.Lvm)
+		vgs := cvgl.lvmBackend.GetVolumeGroups(cd.Lvm)
+		if len(vgs) == 1 {
+			if vgs[0].PhysicalVolume == name {
+				return nil
+			}
+			return fmt.Errorf("🔴 %s: Failed to validate volume group. Expected=%s, Actual=%s", name, name, vgs[0].PhysicalVolume)
 		}
+		if len(vgs) > 1 {
+			return fmt.Errorf("🔴 %s: Failed to validate volume group. #(Physical volume) Expected=%d, Actual=%d", name, 1, len(vgs))
+		}
+
 	}
 	return nil
 }

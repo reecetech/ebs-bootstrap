@@ -11,8 +11,10 @@ import (
 type LvmService interface {
 	GetPhysicalVolumes() ([]*model.PhysicalVolume, error)
 	GetVolumeGroups() ([]*model.VolumeGroup, error)
+	GetLogicalVolumes() ([]*model.LogicalVolume, error)
 	CreatePhysicalVolume(name string) error
 	CreateVolumeGroup(name string, physicalVolume string) error
+	CreateLogicalVolume(name string, volumeGroup string, freeSpacePercent int) error
 }
 
 type LinuxLvmService struct {
@@ -33,6 +35,15 @@ type VgsResponse struct {
 			Name           string `json:"vg_name"`
 			PhysicalVolume string `json:"pv_name"`
 		} `json:"vg"`
+	} `json:"report"`
+}
+
+type LvsResponse struct {
+	Report []struct {
+		LogicalVolume []struct {
+			Name        string `json:"lv_name"`
+			VolumeGroup string `json:"vg_name"`
+		} `json:"lv"`
 	} `json:"report"`
 }
 
@@ -83,6 +94,27 @@ func (ls *LinuxLvmService) GetVolumeGroups() ([]*model.VolumeGroup, error) {
 	return vgs, nil
 }
 
+func (ls *LinuxLvmService) GetLogicalVolumes() ([]*model.LogicalVolume, error) {
+	r := ls.runnerFactory.Select(utils.Lvs)
+	output, err := r.Command("-o", "lv_name,vg_name", "--reportformat", "json")
+	if err != nil {
+		return nil, err
+	}
+	lr := &LvsResponse{}
+	err = json.Unmarshal([]byte(output), lr)
+	if err != nil {
+		return nil, fmt.Errorf("🔴 Failed to decode lvs response: %v", err)
+	}
+	lvs := make([]*model.LogicalVolume, len(lr.Report[0].LogicalVolume))
+	for i, lv := range lr.Report[0].LogicalVolume {
+		lvs[i] = &model.LogicalVolume{
+			Name:        lv.Name,
+			VolumeGroup: lv.VolumeGroup,
+		}
+	}
+	return lvs, nil
+}
+
 func (ls *LinuxLvmService) CreatePhysicalVolume(name string) error {
 	r := ls.runnerFactory.Select(utils.PvCreate)
 	_, err := r.Command(name)
@@ -92,5 +124,11 @@ func (ls *LinuxLvmService) CreatePhysicalVolume(name string) error {
 func (ls *LinuxLvmService) CreateVolumeGroup(name string, physicalVolume string) error {
 	r := ls.runnerFactory.Select(utils.VgCreate)
 	_, err := r.Command(name, physicalVolume)
+	return err
+}
+
+func (ls *LinuxLvmService) CreateLogicalVolume(name string, volumeGroup string, freeSpacePercent int) error {
+	r := ls.runnerFactory.Select(utils.LvCreate)
+	_, err := r.Command("-l", fmt.Sprintf("%d%%FREE", freeSpacePercent), "-n", name, volumeGroup)
 	return err
 }

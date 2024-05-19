@@ -26,6 +26,8 @@ const (
 	PvCreate  Binary = "pvcreate"
 	Vgs       Binary = "vgs"
 	VgCreate  Binary = "vgcreate"
+	Lvs       Binary = "lvs"
+	LvCreate  Binary = "lvcreate"
 )
 
 type RunnerFactory interface {

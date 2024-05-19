@@ -14,9 +14,9 @@ const (
 )
 
 type LvmNode struct {
-	id       string
-	Name     string
-	Active   bool
+	id   string
+	Name string
+	// Active   bool
 	nodeType LvmNodeType
 	children []*LvmNode
 	parents  []*LvmNode
@@ -24,9 +24,9 @@ type LvmNode struct {
 
 func NewBlockDevice(name string) *LvmNode {
 	return &LvmNode{
-		id:       fmt.Sprintf("device:%s", name),
-		Name:     name,
-		Active:   true,
+		id:   fmt.Sprintf("device:%s", name),
+		Name: name,
+		// Active:   true,
 		nodeType: BlockDevice,
 		children: []*LvmNode{},
 		parents:  []*LvmNode{},
@@ -35,9 +35,9 @@ func NewBlockDevice(name string) *LvmNode {
 
 func NewPhysicalVolume(name string) *LvmNode {
 	return &LvmNode{
-		id:       fmt.Sprintf("pv:%s", name),
-		Name:     name,
-		Active:   true,
+		id:   fmt.Sprintf("pv:%s", name),
+		Name: name,
+		// Active:   true,
 		nodeType: PhysicalVolume,
 		children: []*LvmNode{},
 		parents:  []*LvmNode{},
@@ -46,20 +46,20 @@ func NewPhysicalVolume(name string) *LvmNode {
 
 func NewVolumeGroup(name string) *LvmNode {
 	return &LvmNode{
-		id:       fmt.Sprintf("vg:%s", name),
-		Name:     name,
-		Active:   false,
+		id:   fmt.Sprintf("vg:%s", name),
+		Name: name,
+		// Active:   false,
 		nodeType: VolumeGroup,
 		children: []*LvmNode{},
 		parents:  []*LvmNode{},
 	}
 }
 
-func NewLogicalVolume(name string, vg string, active bool) *LvmNode {
+func NewLogicalVolume(name string, vg string) *LvmNode {
 	return &LvmNode{
-		id:       fmt.Sprintf("lv:%s:vg:%s", name, vg),
-		Name:     name,
-		Active:   active,
+		id:   fmt.Sprintf("lv:%s:vg:%s", name, vg),
+		Name: name,
+		// Active:   active,
 		nodeType: LogicalVolume,
 		children: []*LvmNode{},
 		parents:  []*LvmNode{},
@@ -132,8 +132,8 @@ func (lg *LvmGraph) AddVolumeGroup(name string, pv string) error {
 	return nil
 }
 
-func (lg *LvmGraph) AddLogicalVolume(name string, vg string, active bool) error {
-	lv := NewLogicalVolume(name, vg, active)
+func (lg *LvmGraph) AddLogicalVolume(name string, vg string) error {
+	lv := NewLogicalVolume(name, vg)
 
 	_, found := lg.nodes[lv.id]
 	if found {
@@ -152,12 +152,12 @@ func (lg *LvmGraph) AddLogicalVolume(name string, vg string, active bool) error 
 
 	// If at least one of the logical volumes are active, the
 	// volume group is considered active
-	for _, lvn := range vgn.children {
-		if lvn.Active {
-			vgn.Active = true
-			break
-		}
-	}
+	// for _, lvn := range vgn.children {
+	// 	if lvn.Active {
+	// 		vgn.Active = true
+	// 		break
+	// 	}
+	// }
 	return nil
 }
 
