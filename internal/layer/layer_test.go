@@ -40,6 +40,10 @@ func (ml *MockLayer) Warning() string {
 	return DisabledWarning
 }
 
+func (ml *MockLayer) ShouldProcess(c *config.Config) bool {
+	return true
+}
+
 func TestExponentialBackoffLayerExecutor(t *testing.T) {
 	mae := action.NewDefaultActionExecutor()
 	// Lets generate ExponentialBackoffParameters with a custom

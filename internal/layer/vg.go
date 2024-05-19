@@ -74,3 +74,12 @@ func (cvgl *CreateVolumeGroupLayer) Warning() string {
 func (cvgl *CreateVolumeGroupLayer) From(c *config.Config) error {
 	return cvgl.lvmBackend.From(c)
 }
+
+func (cvgl *CreateVolumeGroupLayer) ShouldProcess(c *config.Config) bool {
+	for _, cd := range c.Devices {
+		if len(cd.Lvm) > 0 {
+			return true
+		}
+	}
+	return false
+}

@@ -68,3 +68,12 @@ func (cpvl *CreatePhysicalVolumeLayer) From(c *config.Config) error {
 	// Lvmackend does not have to be initialised as we are only creating a Physical Volume
 	return cpvl.deviceBackend.From(c)
 }
+
+func (cpvl *CreatePhysicalVolumeLayer) ShouldProcess(c *config.Config) bool {
+	for _, cd := range c.Devices {
+		if len(cd.Lvm) > 0 {
+			return true
+		}
+	}
+	return false
+}

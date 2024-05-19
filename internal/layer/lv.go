@@ -69,3 +69,12 @@ func (cvgl *CreateLogicalVolumeLayer) Warning() string {
 func (cvgl *CreateLogicalVolumeLayer) From(c *config.Config) error {
 	return cvgl.lvmBackend.From(c)
 }
+
+func (cvgl *CreateLogicalVolumeLayer) ShouldProcess(c *config.Config) bool {
+	for _, cd := range c.Devices {
+		if len(cd.Lvm) > 0 {
+			return true
+		}
+	}
+	return false
+}

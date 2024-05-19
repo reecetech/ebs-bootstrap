@@ -83,3 +83,12 @@ func (fdl *ResizeDeviceLayer) Validate(c *config.Config) error {
 func (fdl *ResizeDeviceLayer) Warning() string {
 	return DisabledWarning
 }
+
+func (fdl *ResizeDeviceLayer) ShouldProcess(c *config.Config) bool {
+	for name := range c.Devices {
+		if c.GetResizeFs(name) {
+			return true
+		}
+	}
+	return false
+}

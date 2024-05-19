@@ -95,3 +95,12 @@ func (fdl *MountDeviceLayer) Validate(c *config.Config) error {
 func (fdl *MountDeviceLayer) Warning() string {
 	return "Devices mounted to a location, not specified in the configuration, will be unmounted"
 }
+
+func (fdl *MountDeviceLayer) ShouldProcess(c *config.Config) bool {
+	for _, cd := range c.Devices {
+		if len(cd.MountPoint) > 0 {
+			return true
+		}
+	}
+	return false
+}

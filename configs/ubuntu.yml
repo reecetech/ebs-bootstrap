@@ -4,6 +4,14 @@ devices:
   /dev/vdb:
     fs: xfs
     lvm: ifmx-etc
+    mountPoint: /mnt/foo
+    user: ubuntu
+    group: ubuntu
+    permissions: 755
   /dev/vdc:
     fs: xfs
     lvm: ifmx-var
+    mountPoint: /mnt/bar
+    user: ubuntu
+    group: ubuntu
+    permissions: 755
