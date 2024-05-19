@@ -15,6 +15,7 @@ type LvmService interface {
 	CreatePhysicalVolume(name string) error
 	CreateVolumeGroup(name string, physicalVolume string) error
 	CreateLogicalVolume(name string, volumeGroup string, freeSpacePercent int) error
+	ActivateLogicalVolume(name string, volumeGroup string) error
 }
 
 type LinuxLvmService struct {
@@ -43,6 +44,7 @@ type LvsResponse struct {
 		LogicalVolume []struct {
 			Name        string `json:"lv_name"`
 			VolumeGroup string `json:"vg_name"`
+			Attributes  string `json:"lv_attr"`
 		} `json:"lv"`
 	} `json:"report"`
 }
@@ -96,7 +98,7 @@ func (ls *LinuxLvmService) GetVolumeGroups() ([]*model.VolumeGroup, error) {
 
 func (ls *LinuxLvmService) GetLogicalVolumes() ([]*model.LogicalVolume, error) {
 	r := ls.runnerFactory.Select(utils.Lvs)
-	output, err := r.Command("-o", "lv_name,vg_name", "--reportformat", "json")
+	output, err := r.Command("-o", "lv_name,vg_name,lv_attr", "--reportformat", "json")
 	if err != nil {
 		return nil, err
 	}
@@ -107,9 +109,19 @@ func (ls *LinuxLvmService) GetLogicalVolumes() ([]*model.LogicalVolume, error) {
 	}
 	lvs := make([]*model.LogicalVolume, len(lr.Report[0].LogicalVolume))
 	for i, lv := range lr.Report[0].LogicalVolume {
+		var state model.LogicalVolumeState
+		switch lv.Attributes[4] {
+		case 'a':
+			state = model.Active
+		case '-':
+			state = model.Inactive
+		default:
+			state = model.Unsupported
+		}
 		lvs[i] = &model.LogicalVolume{
 			Name:        lv.Name,
 			VolumeGroup: lv.VolumeGroup,
+			State:       state,
 		}
 	}
 	return lvs, nil
@@ -130,5 +142,11 @@ func (ls *LinuxLvmService) CreateVolumeGroup(name string, physicalVolume string)
 func (ls *LinuxLvmService) CreateLogicalVolume(name string, volumeGroup string, freeSpacePercent int) error {
 	r := ls.runnerFactory.Select(utils.LvCreate)
 	_, err := r.Command("-l", fmt.Sprintf("%d%%FREE", freeSpacePercent), "-n", name, volumeGroup)
+	return err
+}
+
+func (ls *LinuxLvmService) ActivateLogicalVolume(name string, volumeGroup string) error {
+	r := ls.runnerFactory.Select(utils.LvChange)
+	_, err := r.Command("-ay", fmt.Sprintf("%s/%s", volumeGroup, name))
 	return err
 }

@@ -129,3 +129,44 @@ func (a *CreateLogicalVolumeAction) Refuse() string {
 func (a *CreateLogicalVolumeAction) Success() string {
 	return fmt.Sprintf("Successfully created logical volume %s that consumes %d%% free space of volume group %s", a.name, a.freeSpacePercent, a.volumeGroup)
 }
+
+type ActivateLogicalVolumeAction struct {
+	name        string
+	volumeGroup string
+	mode        model.Mode
+	lvmService  service.LvmService
+}
+
+func NewActivateLogicalVolumeAction(name string, volumeGroup string, ls service.LvmService) *ActivateLogicalVolumeAction {
+	return &ActivateLogicalVolumeAction{
+		name:        name,
+		volumeGroup: volumeGroup,
+		mode:        model.Empty,
+		lvmService:  ls,
+	}
+}
+
+func (a *ActivateLogicalVolumeAction) Execute() error {
+	return a.lvmService.ActivateLogicalVolume(a.name, a.volumeGroup)
+}
+
+func (a *ActivateLogicalVolumeAction) GetMode() model.Mode {
+	return a.mode
+}
+
+func (a *ActivateLogicalVolumeAction) SetMode(mode model.Mode) Action {
+	a.mode = mode
+	return a
+}
+
+func (a *ActivateLogicalVolumeAction) Prompt() string {
+	return fmt.Sprintf("Would you like to activate logical volume %s in volume group %s", a.name, a.volumeGroup)
+}
+
+func (a *ActivateLogicalVolumeAction) Refuse() string {
+	return fmt.Sprintf("Refused to activate logical volume %s in volume group %s", a.name, a.volumeGroup)
+}
+
+func (a *ActivateLogicalVolumeAction) Success() string {
+	return fmt.Sprintf("Successfully activated logical volume %s in volume group %s", a.name, a.volumeGroup)
+}

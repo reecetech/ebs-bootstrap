@@ -1,5 +1,5 @@
 defaults:
-  lvmConsumption: 80
+  lvmConsumption: 100
 devices:
   /dev/vdb:
     fs: xfs

@@ -4,30 +4,39 @@ import (
 	"fmt"
 )
 
-type LvmNodeType int
+type LvmNodeState int32
+type LvmNodeCategory int32
 
 const (
-	BlockDevice    LvmNodeType = 0
-	PhysicalVolume LvmNodeType = 1
-	VolumeGroup    LvmNodeType = 2
-	LogicalVolume  LvmNodeType = 3
+	BlockDeviceActive        LvmNodeState = 0b0000001
+	PhysicalVolumeActive     LvmNodeState = 0b0000010
+	VolumeGroupInactive      LvmNodeState = 0b0000100
+	VolumeGroupActive        LvmNodeState = 0b0001100
+	LogicalVolumeInactive    LvmNodeState = 0b0010000
+	LogicalVolumeActive      LvmNodeState = 0b0110000
+	LogicalVolumeUnsupported LvmNodeState = 0b1110000
+)
+
+const (
+	BlockDevice    LvmNodeCategory = 0b0000001
+	PhysicalVolume LvmNodeCategory = 0b0000010
+	VolumeGroup    LvmNodeCategory = 0b0000100
+	LogicalVolume  LvmNodeCategory = 0b0010000
 )
 
 type LvmNode struct {
-	id   string
-	Name string
-	// Active   bool
-	nodeType LvmNodeType
+	id       string
+	Name     string
+	State    LvmNodeState
 	children []*LvmNode
 	parents  []*LvmNode
 }
 
 func NewBlockDevice(name string) *LvmNode {
 	return &LvmNode{
-		id:   fmt.Sprintf("device:%s", name),
-		Name: name,
-		// Active:   true,
-		nodeType: BlockDevice,
+		id:       fmt.Sprintf("device:%s", name),
+		Name:     name,
+		State:    BlockDeviceActive,
 		children: []*LvmNode{},
 		parents:  []*LvmNode{},
 	}
@@ -35,10 +44,9 @@ func NewBlockDevice(name string) *LvmNode {
 
 func NewPhysicalVolume(name string) *LvmNode {
 	return &LvmNode{
-		id:   fmt.Sprintf("pv:%s", name),
-		Name: name,
-		// Active:   true,
-		nodeType: PhysicalVolume,
+		id:       fmt.Sprintf("pv:%s", name),
+		Name:     name,
+		State:    PhysicalVolumeActive,
 		children: []*LvmNode{},
 		parents:  []*LvmNode{},
 	}
@@ -46,21 +54,19 @@ func NewPhysicalVolume(name string) *LvmNode {
 
 func NewVolumeGroup(name string) *LvmNode {
 	return &LvmNode{
-		id:   fmt.Sprintf("vg:%s", name),
-		Name: name,
-		// Active:   false,
-		nodeType: VolumeGroup,
+		id:       fmt.Sprintf("vg:%s", name),
+		Name:     name,
+		State:    VolumeGroupInactive,
 		children: []*LvmNode{},
 		parents:  []*LvmNode{},
 	}
 }
 
-func NewLogicalVolume(name string, vg string) *LvmNode {
+func NewLogicalVolume(name string, vg string, State LvmNodeState) *LvmNode {
 	return &LvmNode{
-		id:   fmt.Sprintf("lv:%s:vg:%s", name, vg),
-		Name: name,
-		// Active:   active,
-		nodeType: LogicalVolume,
+		id:       fmt.Sprintf("lv:%s:vg:%s", name, vg),
+		Name:     name,
+		State:    State,
 		children: []*LvmNode{},
 		parents:  []*LvmNode{},
 	}
@@ -132,8 +138,8 @@ func (lg *LvmGraph) AddVolumeGroup(name string, pv string) error {
 	return nil
 }
 
-func (lg *LvmGraph) AddLogicalVolume(name string, vg string) error {
-	lv := NewLogicalVolume(name, vg)
+func (lg *LvmGraph) AddLogicalVolume(name string, vg string, state LvmNodeState) error {
+	lv := NewLogicalVolume(name, vg, state)
 
 	_, found := lg.nodes[lv.id]
 	if found {
@@ -152,12 +158,12 @@ func (lg *LvmGraph) AddLogicalVolume(name string, vg string) error {
 
 	// If at least one of the logical volumes are active, the
 	// volume group is considered active
-	// for _, lvn := range vgn.children {
-	// 	if lvn.Active {
-	// 		vgn.Active = true
-	// 		break
-	// 	}
-	// }
+	for _, lvn := range vgn.children {
+		if lvn.State == LogicalVolumeActive {
+			vgn.State = VolumeGroupActive
+			break
+		}
+	}
 	return nil
 }
 
@@ -188,20 +194,20 @@ func (lg *LvmGraph) GetLogicalVolume(name string, vg string) (*LvmNode, error) {
 	return node, nil
 }
 
-func (lg *LvmGraph) GetParents(node *LvmNode, nodeType LvmNodeType) []*LvmNode {
+func (lg *LvmGraph) GetParents(node *LvmNode, state LvmNodeCategory) []*LvmNode {
 	parents := []*LvmNode{}
 	for _, p := range node.parents {
-		if p.nodeType == nodeType {
+		if int32(p.State)&int32(state) > 0 {
 			parents = append(parents, p)
 		}
 	}
 	return parents
 }
 
-func (lg *LvmGraph) GetChildren(node *LvmNode, nodeType LvmNodeType) []*LvmNode {
+func (lg *LvmGraph) GetChildren(node *LvmNode, state LvmNodeCategory) []*LvmNode {
 	children := []*LvmNode{}
 	for _, c := range node.children {
-		if c.nodeType == nodeType {
+		if int32(c.State)&int32(state) > 0 {
 			children = append(children, c)
 		}
 	}
