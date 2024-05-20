@@ -31,7 +31,7 @@ func main() {
 	c, err := config.New(os.Args)
 	checkError(err)
 
-	// Service + Config Consumers
+	// Services
 	db := backend.NewLinuxDeviceBackend(lds, fssf)
 	fb := backend.NewLinuxFileBackend(ufs)
 	ub := backend.NewLinuxOwnerBackend(uos)
@@ -74,7 +74,7 @@ func main() {
 	// Device Validator
 	checkError(config.NewDeviceValidator(lds).Validate(c))
 
-	// Layers
+	// File System Layers
 	layers := []layer.Layer{
 		layer.NewFormatDeviceLayer(db),
 		layer.NewLabelDeviceLayer(db),
@@ -84,8 +84,8 @@ func main() {
 		layer.NewChangeOwnerLayer(ub, fb),
 		layer.NewChangePermissionsLayer(fb),
 	}
-
 	checkError(le.Execute(layers))
+
 	log.Println("🟢 Passed all validation checks")
 }
 

@@ -34,10 +34,10 @@ func (cvgl *CreateVolumeGroupLayer) Modify(c *config.Config) ([]action.Action, e
 			if vgs[0].PhysicalVolume == name {
 				continue
 			}
-			return nil, fmt.Errorf("🔴 %s: Volume group %s does not belong to physical volume %s", name, cd.Lvm, name)
+			return nil, fmt.Errorf("🔴 %s: Volume group %s already exists and belongs to physical volume %s", name, cd.Lvm, vgs[0].PhysicalVolume)
 		}
 		if len(vgs) > 1 {
-			return nil, fmt.Errorf("🔴 %s: Cannot manage volume group %s with more than one physical volumes associated", name, cd.Lvm)
+			return nil, fmt.Errorf("🔴 %s: Cannot manage volume group %s because it is associated with more than one physical volume", name, cd.Lvm)
 		}
 
 		mode := c.GetMode(name)
