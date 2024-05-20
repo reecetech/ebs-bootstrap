@@ -27,7 +27,7 @@ jobs:
           platforms: ${{ matrix.architecture }}
       - name: Build and Test 🔨
         run: ./build/docker.sh --architecture ${{ matrix.architecture }}
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
@@ -49,13 +49,16 @@ jobs:
           bats-version: 1.11.0
 
       - name: Download x86_64 binary 📥
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ebs-bootstrap-*
+          merge-multiple: true
 
       - name: Make executable
         shell: bash
         run: |
           set -euo pipefail
-          mv ebs-bootstrap-linux-x86_64/ebs-bootstrap-linux-x86_64 ebs-bootstrap
+          mv ebs-bootstrap-linux-x86_64 ebs-bootstrap
           chmod +x ebs-bootstrap
 
       - name: Setup tests ⚙️
@@ -79,7 +82,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download all workflow run artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ebs-bootstrap-*
+          merge-multiple: true
+
       - id: version
         name: Get next version
         uses: reecetech/version-increment@2023.10.2
