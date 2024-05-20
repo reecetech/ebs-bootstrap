@@ -36,3 +36,6 @@ jobs:
 
       - name: Test ext4 🧪
         run: bats bats/ext4.bats
+
+      - name: Test xfs 🧫
+        run: bats bats/xfs.bats
