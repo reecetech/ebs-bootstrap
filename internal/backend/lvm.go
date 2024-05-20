@@ -5,7 +5,7 @@ import (
 
 	"github.com/reecetech/ebs-bootstrap/internal/action"
 	"github.com/reecetech/ebs-bootstrap/internal/config"
-	datastructures "github.com/reecetech/ebs-bootstrap/internal/data_structures"
+	"github.com/reecetech/ebs-bootstrap/internal/datastructures"
 	"github.com/reecetech/ebs-bootstrap/internal/model"
 	"github.com/reecetech/ebs-bootstrap/internal/service"
 )
