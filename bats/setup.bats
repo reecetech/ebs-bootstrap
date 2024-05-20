@@ -22,7 +22,7 @@ setup() {
 
     print_run_info
     [ "$status" -eq 0 ] &&
-    [[ "$output" = *"/tmp/fs"* ]]
+    [[ "$output" = *"/tmp/ext4-loop"* ]]
 }
 
 @test "setup loopback device for xfs" {
@@ -35,7 +35,7 @@ setup() {
 
     print_run_info
     [ "$status" -eq 0 ] &&
-    [[ "$output" = *"/tmp/fs"* ]]
+    [[ "$output" = *"/tmp/xfs-loop"* ]]
 }
 
 @test "setup ext4 config" {
