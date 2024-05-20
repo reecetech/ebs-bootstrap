@@ -42,13 +42,22 @@ func main() {
 	dae := action.NewDefaultActionExecutor()
 	le := layer.NewExponentialBackoffLayerExecutor(c, dae, layer.DefaultExponentialBackoffParameters())
 
-	// Modify Config
-	modifiers := []config.Modifier{
-		config.NewAwsNVMeDriverModifier(ans, lds),
+	// Validate Config
+	validators := []config.Validator{
+		config.NewFileSystemValidator(),
+		config.NewModeValidator(),
+		config.NewResizeThresholdValidator(),
+		config.NewMountPointValidator(),
+		config.NewMountOptionsValidator(),
+		config.NewOwnerValidator(uos),
+		config.NewLvmConsumptionValidator(),
 	}
-	for _, m := range modifiers {
-		checkError(m.Modify(c))
+	for _, v := range validators {
+		checkError(v.Validate(c))
 	}
+
+	// NVMe Device Modifier
+	checkError(config.NewAwsNVMeDriverModifier(ans, lds).Modify(c))
 
 	// LVM Layers
 	lvmLayers := []layer.Layer{
@@ -60,26 +69,10 @@ func main() {
 	checkError(le.Execute(lvmLayers))
 
 	// LVM Modifiers
-	lvmModifiers := []config.Modifier{
-		config.NewLvmModifier(),
-	}
-	for _, m := range lvmModifiers {
-		checkError(m.Modify(c))
-	}
+	checkError(config.NewLvmModifier().Modify(c))
 
-	// Validate Config
-	validators := []config.Validator{
-		config.NewFileSystemValidator(),
-		config.NewModeValidator(),
-		config.NewResizeThresholdValidator(),
-		config.NewDeviceValidator(lds),
-		config.NewMountPointValidator(),
-		config.NewMountOptionsValidator(),
-		config.NewOwnerValidator(uos),
-	}
-	for _, v := range validators {
-		checkError(v.Validate(c))
-	}
+	// Device Validator
+	checkError(config.NewDeviceValidator(lds).Validate(c))
 
 	// Layers
 	layers := []layer.Layer{
@@ -91,6 +84,7 @@ func main() {
 		layer.NewChangeOwnerLayer(ub, fb),
 		layer.NewChangePermissionsLayer(fb),
 	}
+
 	checkError(le.Execute(layers))
 	log.Println("🟢 Passed all validation checks")
 }
