@@ -1,3 +1,4 @@
+---
 name: Build 🔨 and Release 🚀
 
 on:
@@ -8,65 +9,27 @@ on:
       - '**'
 
 jobs:
-  test:
+  system-test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - architecture: amd64
-            artifact: ebs-bootstrap-linux-x86_64
-          - architecture: arm64
-            artifact: ebs-bootstrap-linux-aarch64
-    name: Build and Test (${{ matrix.architecture }}) 🔨
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: ${{ matrix.architecture }}
-      - name: Build and Test 🔨
-        run: ./build/docker.sh --architecture ${{ matrix.architecture }}
-      - uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}
-          if-no-files-found: error
-          retention-days: 1
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  release:
-    if: ${{ github.ref_name == github.event.repository.default_branch }}  # Only release from the default branch
-    runs-on: ubuntu-latest
-    name: Release 🚀
-    needs:
-      - test
-    permissions:
-      contents: write
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Download all workflow run artifacts
-        uses: actions/download-artifact@v3
-      - id: version 
-        name: Get next version
-        uses: reecetech/version-increment@2023.10.2
+      - name: Setup bats 🦇
+        uses: bats-core/bats-action@2.0.0
         with:
-          scheme: semver
-          increment: patch
-      - id: github-release
-        name: Create Github Release 📦
-        uses: softprops/action-gh-release@v0.1.15
-        with:
-          tag_name: ${{ steps.version.outputs.v-version }}
-          prerelease: false
-          draft: false
-          token: ${{ secrets.GITHUB_TOKEN }}
-          generate_release_notes: true
-          files: |
-            */ebs-bootstrap-linux-*
-      - id: push-short-tag
-        name: Create release short tag 🏷
-        uses: richardsimko/update-tag@v1.0.11
-        with:
-          tag_name: ${{ steps.version.outputs.major-v-version }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          bats-version: 1.11.0
+
+      # - name: Download all workflow run artifacts
+      #   uses: actions/download-artifact@v3
+
+      - name: Download
+        shell: bash
+        run: |
+          curl -fLsS https://github.com/reecetech/ebs-bootstrap/releases/download/v1.0.7/ebs-bootstrap-linux-x86_64 \
+               -o ebs-bootstrap
+
+          chmod +x ebs-bootstrap
+
+      - name: Setup Tests
+        run: bats bats/setup.bats
