@@ -48,7 +48,7 @@ jobs:
         with:
           bats-version: 1.11.0
 
-      - name: Download x86_64 binary 📥
+      - name: Download artifacts 📥
         uses: actions/download-artifact@v4
         with:
           pattern: ebs-bootstrap-*
@@ -80,22 +80,25 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Download all workflow run artifacts
+      - name: Checkout code 🛒
+        uses: actions/checkout@v4
+
+      - name: Download artifacts 📥
         uses: actions/download-artifact@v4
         with:
           pattern: ebs-bootstrap-*
           merge-multiple: true
 
       - id: version
-        name: Get next version
-        uses: reecetech/version-increment@2023.10.2
+        name: Get next version 🧮
+        uses: reecetech/version-increment@2024.4.4
         with:
           scheme: semver
           increment: patch
+
       - id: github-release
         name: Create Github Release 📦
-        uses: softprops/action-gh-release@v0.1.15
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.v-version }}
           prerelease: false
@@ -104,6 +107,7 @@ jobs:
           generate_release_notes: true
           files: |
             */ebs-bootstrap-linux-*
+
       - id: push-short-tag
         name: Create release short tag 🏷
         uses: richardsimko/update-tag@v1.0.11
