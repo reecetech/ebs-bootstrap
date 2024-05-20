@@ -70,9 +70,8 @@ func NewLvmModifier() *LvmModifier {
 }
 
 func (lm *LvmModifier) Modify(c *Config) error {
-	// Fetch a copy of the original keys as we are updating
-	// the config in-place and it is unsafe to iterate over it
-	// directly
+	// Fetch a copy of the original keys as we are updating the
+	// config in-place and it is unsafe to iterate over it directly
 	keys := make([]string, len(c.Devices))
 	for name := range c.Devices {
 		keys = append(keys, name)

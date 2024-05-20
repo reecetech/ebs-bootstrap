@@ -1,5 +1,7 @@
 package model
 
+import "github.com/reecetech/ebs-bootstrap/internal/datastructures"
+
 type PhysicalVolume struct {
 	Name string
 }
@@ -12,9 +14,9 @@ type VolumeGroup struct {
 type LogicalVolumeState int32
 
 const (
-	Inactive    LogicalVolumeState = 0b0010000
-	Active      LogicalVolumeState = 0b0110000
-	Unsupported LogicalVolumeState = 0b1110000
+	Inactive    LogicalVolumeState = LogicalVolumeState(datastructures.LogicalVolumeInactive)
+	Active      LogicalVolumeState = LogicalVolumeState(datastructures.LogicalVolumeActive)
+	Unsupported LogicalVolumeState = LogicalVolumeState(datastructures.LogicalVolumeUnsupported)
 )
 
 type LogicalVolume struct {

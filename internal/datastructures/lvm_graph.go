@@ -197,6 +197,7 @@ func (lg *LvmGraph) GetLogicalVolume(name string, vg string) (*LvmNode, error) {
 func (lg *LvmGraph) GetParents(node *LvmNode, state LvmNodeCategory) []*LvmNode {
 	parents := []*LvmNode{}
 	for _, p := range node.parents {
+		// Bitmasking to check if the parent nodes is of the desired category
 		if int32(p.State)&int32(state) > 0 {
 			parents = append(parents, p)
 		}
@@ -207,6 +208,7 @@ func (lg *LvmGraph) GetParents(node *LvmNode, state LvmNodeCategory) []*LvmNode 
 func (lg *LvmGraph) GetChildren(node *LvmNode, state LvmNodeCategory) []*LvmNode {
 	children := []*LvmNode{}
 	for _, c := range node.children {
+		// Bitmasking to check if children nodes is of the desired category
 		if int32(c.State)&int32(state) > 0 {
 			children = append(children, c)
 		}
