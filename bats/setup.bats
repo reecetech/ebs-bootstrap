@@ -24,3 +24,16 @@ setup() {
     [ "$status" -eq 0 ] &&
     [[ "$output" = *"/tmp/fs"* ]]
 }
+
+@test "setup ext4 config" {
+    echo """
+---
+devices:
+  $(cat /tmp/loopdev):
+    fs: ext4
+    mountPoint: /tmp/ext4
+""" > /tmp/ext4-bootstrap.yaml
+
+    run mkdir /tmp/ext4
+    [ "$status" -eq 0 ]
+}

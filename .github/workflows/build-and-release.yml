@@ -12,7 +12,7 @@ jobs:
   system-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout code 🛒
         uses: actions/checkout@v4
 
       - name: Setup bats 🦇
@@ -23,7 +23,7 @@ jobs:
       # - name: Download all workflow run artifacts
       #   uses: actions/download-artifact@v3
 
-      - name: Download
+      - name: Download 📥
         shell: bash
         run: |
           curl -fLsS https://github.com/reecetech/ebs-bootstrap/releases/download/v1.0.7/ebs-bootstrap-linux-x86_64 \
@@ -31,5 +31,8 @@ jobs:
 
           chmod +x ebs-bootstrap
 
-      - name: Setup Tests
+      - name: Setup tests ⚙️
         run: bats bats/setup.bats
+
+      - name: Test ext4 🧪
+        run: bats bats/ext4.bats
