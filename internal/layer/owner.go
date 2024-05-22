@@ -115,3 +115,12 @@ func (fdl *ChangeOwnerLayer) Validate(c *config.Config) error {
 func (fdl *ChangeOwnerLayer) Warning() string {
 	return DisabledWarning
 }
+
+func (fdl *ChangeOwnerLayer) ShouldProcess(c *config.Config) bool {
+	for _, cd := range c.Devices {
+		if len(cd.MountPoint) > 0 && (len(cd.User) > 0 || len(cd.Group) > 0) {
+			return true
+		}
+	}
+	return false
+}

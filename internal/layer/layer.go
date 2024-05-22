@@ -19,6 +19,7 @@ type Layer interface {
 	Modify(c *config.Config) ([]action.Action, error)
 	Validate(config *config.Config) error
 	Warning() string
+	ShouldProcess(config *config.Config) bool
 }
 
 type LayerExecutor interface {
@@ -70,6 +71,9 @@ func NewExponentialBackoffLayerExecutor(c *config.Config, ae action.ActionExecut
 
 func (le *ExponentialBackoffLayerExecutor) Execute(layers []Layer) error {
 	for _, layer := range layers {
+		if !layer.ShouldProcess(le.config) {
+			continue
+		}
 		err := layer.From(le.config)
 		if err != nil {
 			return err
@@ -96,7 +100,6 @@ func (le *ExponentialBackoffLayerExecutor) Execute(layers []Layer) error {
 			return err
 		}
 	}
-	log.Println("🟢 Passed all validation checks")
 	return nil
 }
 

@@ -68,3 +68,12 @@ func (fdl *LabelDeviceLayer) Validate(c *config.Config) error {
 func (fdl *LabelDeviceLayer) Warning() string {
 	return "Certain file systems require that devices be unmounted prior to labeling"
 }
+
+func (fdl *LabelDeviceLayer) ShouldProcess(c *config.Config) bool {
+	for _, cd := range c.Devices {
+		if len(cd.Label) > 0 {
+			return true
+		}
+	}
+	return false
+}

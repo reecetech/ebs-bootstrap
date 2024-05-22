@@ -187,3 +187,28 @@ func (rtv *ResizeThresholdValidator) Validate(c *Config) error {
 func (rtv *ResizeThresholdValidator) isValid(rt float64) bool {
 	return rt >= 0 && rt <= 100
 }
+
+type LvmConsumptionValidator struct{}
+
+func NewLvmConsumptionValidator() *LvmConsumptionValidator {
+	return &LvmConsumptionValidator{}
+}
+
+func (lcv *LvmConsumptionValidator) Validate(c *Config) error {
+	if !lcv.isValid(c.Defaults.LvmConsumption) {
+		return fmt.Errorf("🔴 '%d' (default) must be an integer between 0 and 100 (inclusive)", c.Defaults.LvmConsumption)
+	}
+	if !lcv.isValid(c.overrides.LvmConsumption) {
+		return fmt.Errorf("🔴 '%d' (-lvm-consumption) must be an integer between 0 and 100 (inclusive)", c.overrides.LvmConsumption)
+	}
+	for name, device := range c.Devices {
+		if !lcv.isValid(device.LvmConsumption) {
+			return fmt.Errorf("🔴 %s: '%d' must be an integer between 0 and 100 (inclusive)", name, device.LvmConsumption)
+		}
+	}
+	return nil
+}
+
+func (lcv *LvmConsumptionValidator) isValid(lc int) bool {
+	return lc >= 0 && lc <= 100
+}

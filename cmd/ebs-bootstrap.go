@@ -21,6 +21,7 @@ func main() {
 	lds := service.NewLinuxDeviceService(erf)
 	uos := service.NewUnixOwnerService()
 	ans := service.NewAwsNitroNVMeService()
+	ls := service.NewLinuxLvmService(erf)
 	fssf := service.NewLinuxFileSystemServiceFactory(erf)
 
 	// Warnings
@@ -30,37 +31,50 @@ func main() {
 	c, err := config.New(os.Args)
 	checkError(err)
 
-	// Service + Config Consumers
+	// Services
 	db := backend.NewLinuxDeviceBackend(lds, fssf)
 	fb := backend.NewLinuxFileBackend(ufs)
 	ub := backend.NewLinuxOwnerBackend(uos)
 	dmb := backend.NewLinuxDeviceMetricsBackend(lds, fssf)
-	dae := action.NewDefaultActionExecutor()
+	lb := backend.NewLinuxLvmBackend(ls)
 
-	// Modify Config
-	modifiers := []config.Modifier{
-		config.NewAwsNVMeDriverModifier(ans, lds),
-	}
-	for _, m := range modifiers {
-		checkError(m.Modify(c))
-	}
+	// Executors
+	dae := action.NewDefaultActionExecutor()
+	le := layer.NewExponentialBackoffLayerExecutor(c, dae, layer.DefaultExponentialBackoffParameters())
 
 	// Validate Config
 	validators := []config.Validator{
 		config.NewFileSystemValidator(),
 		config.NewModeValidator(),
 		config.NewResizeThresholdValidator(),
-		config.NewDeviceValidator(lds),
 		config.NewMountPointValidator(),
 		config.NewMountOptionsValidator(),
 		config.NewOwnerValidator(uos),
+		config.NewLvmConsumptionValidator(),
 	}
 	for _, v := range validators {
 		checkError(v.Validate(c))
 	}
 
-	// Layers
-	le := layer.NewExponentialBackoffLayerExecutor(c, dae, layer.DefaultExponentialBackoffParameters())
+	// NVMe Device Modifier
+	checkError(config.NewAwsNVMeDriverModifier(ans, lds).Modify(c))
+
+	// LVM Layers
+	lvmLayers := []layer.Layer{
+		layer.NewCreatePhysicalVolumeLayer(db, lb),
+		layer.NewCreateVolumeGroupLayer(lb),
+		layer.NewCreateLogicalVolumeLayer(lb),
+		layer.NewActivateLogicalVolumeLayer(lb),
+	}
+	checkError(le.Execute(lvmLayers))
+
+	// LVM Modifiers
+	checkError(config.NewLvmModifier().Modify(c))
+
+	// Device Validator
+	checkError(config.NewDeviceValidator(lds).Validate(c))
+
+	// File System Layers
 	layers := []layer.Layer{
 		layer.NewFormatDeviceLayer(db),
 		layer.NewLabelDeviceLayer(db),
@@ -71,6 +85,8 @@ func main() {
 		layer.NewChangePermissionsLayer(fb),
 	}
 	checkError(le.Execute(layers))
+
+	log.Println("🟢 Passed all validation checks")
 }
 
 func checkError(err error) {

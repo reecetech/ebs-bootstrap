@@ -62,3 +62,12 @@ func (fdl *CreateDirectoryLayer) Validate(c *config.Config) error {
 func (fdl *CreateDirectoryLayer) Warning() string {
 	return DisabledWarning
 }
+
+func (fdl *CreateDirectoryLayer) ShouldProcess(c *config.Config) bool {
+	for _, cd := range c.Devices {
+		if len(cd.MountPoint) > 0 {
+			return true
+		}
+	}
+	return false
+}

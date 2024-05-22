@@ -67,3 +67,7 @@ func (fdl *FormatDeviceLayer) Validate(c *config.Config) error {
 func (fdl *FormatDeviceLayer) Warning() string {
 	return "Formatting larger disks can take several seconds ⌛"
 }
+
+func (fdl *FormatDeviceLayer) ShouldProcess(c *config.Config) bool {
+	return true
+}

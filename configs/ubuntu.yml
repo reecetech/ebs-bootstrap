@@ -1,9 +1,17 @@
+defaults:
+  lvmConsumption: 100
 devices:
   /dev/vdb:
     fs: xfs
-    label: external-vol
-    mountPoint: /mnt/app
-    group: ubuntu
+    lvm: ifmx-etc
+    mountPoint: /mnt/foo
     user: ubuntu
-    permissions: 0644
-    resizeFs: true
+    group: ubuntu
+    permissions: 755
+  /dev/vdc:
+    fs: xfs
+    lvm: ifmx-var
+    mountPoint: /mnt/bar
+    user: ubuntu
+    group: ubuntu
+    permissions: 755

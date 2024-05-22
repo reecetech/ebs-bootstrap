@@ -72,3 +72,12 @@ func (fdl *ChangePermissionsLayer) Validate(c *config.Config) error {
 func (fdl *ChangePermissionsLayer) Warning() string {
 	return DisabledWarning
 }
+
+func (fdl *ChangePermissionsLayer) ShouldProcess(c *config.Config) bool {
+	for _, cd := range c.Devices {
+		if len(cd.MountPoint) > 0 && cd.Permissions != 0 {
+			return true
+		}
+	}
+	return false
+}
