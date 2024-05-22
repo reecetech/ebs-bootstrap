@@ -8,7 +8,7 @@ type LvmNodeState int32
 type LvmNodeCategory int32
 
 const (
-	BlockDeviceActive        LvmNodeState = 0b0000001
+	DeviceActive             LvmNodeState = 0b0000001
 	PhysicalVolumeActive     LvmNodeState = 0b0000010
 	VolumeGroupInactive      LvmNodeState = 0b0000100
 	VolumeGroupActive        LvmNodeState = 0b0001100
@@ -18,7 +18,7 @@ const (
 )
 
 const (
-	BlockDevice    LvmNodeCategory = 0b0000001
+	Device         LvmNodeCategory = 0b0000001
 	PhysicalVolume LvmNodeCategory = 0b0000010
 	VolumeGroup    LvmNodeCategory = 0b0000100
 	LogicalVolume  LvmNodeCategory = 0b0010000
@@ -28,45 +28,50 @@ type LvmNode struct {
 	id       string
 	Name     string
 	State    LvmNodeState
+	Size     uint64
 	children []*LvmNode
 	parents  []*LvmNode
 }
 
-func NewBlockDevice(name string) *LvmNode {
+func NewDevice(name string, size uint64) *LvmNode {
 	return &LvmNode{
 		id:       fmt.Sprintf("device:%s", name),
 		Name:     name,
-		State:    BlockDeviceActive,
+		State:    DeviceActive,
+		Size:     size,
 		children: []*LvmNode{},
 		parents:  []*LvmNode{},
 	}
 }
 
-func NewPhysicalVolume(name string) *LvmNode {
+func NewPhysicalVolume(name string, size uint64) *LvmNode {
 	return &LvmNode{
 		id:       fmt.Sprintf("pv:%s", name),
 		Name:     name,
 		State:    PhysicalVolumeActive,
+		Size:     size,
 		children: []*LvmNode{},
 		parents:  []*LvmNode{},
 	}
 }
 
-func NewVolumeGroup(name string) *LvmNode {
+func NewVolumeGroup(name string, size uint64) *LvmNode {
 	return &LvmNode{
 		id:       fmt.Sprintf("vg:%s", name),
 		Name:     name,
 		State:    VolumeGroupInactive,
+		Size:     size,
 		children: []*LvmNode{},
 		parents:  []*LvmNode{},
 	}
 }
 
-func NewLogicalVolume(name string, vg string, State LvmNodeState) *LvmNode {
+func NewLogicalVolume(name string, vg string, State LvmNodeState, size uint64) *LvmNode {
 	return &LvmNode{
 		id:       fmt.Sprintf("lv:%s:vg:%s", name, vg),
 		Name:     name,
 		State:    State,
+		Size:     size,
 		children: []*LvmNode{},
 		parents:  []*LvmNode{},
 	}
@@ -82,8 +87,8 @@ func NewLvmGraph() *LvmGraph {
 	}
 }
 
-func (lg *LvmGraph) AddBlockDevice(name string) error {
-	bd := NewBlockDevice(name)
+func (lg *LvmGraph) AddDevice(name string, size uint64) error {
+	bd := NewDevice(name, size)
 
 	_, found := lg.nodes[bd.id]
 	if found {
@@ -94,8 +99,8 @@ func (lg *LvmGraph) AddBlockDevice(name string) error {
 	return nil
 }
 
-func (lg *LvmGraph) AddPhysicalVolume(name string) error {
-	pv := NewPhysicalVolume(name)
+func (lg *LvmGraph) AddPhysicalVolume(name string, size uint64) error {
+	pv := NewPhysicalVolume(name, size)
 
 	_, found := lg.nodes[pv.id]
 	if found {
@@ -114,12 +119,12 @@ func (lg *LvmGraph) AddPhysicalVolume(name string) error {
 	return nil
 }
 
-func (lg *LvmGraph) AddVolumeGroup(name string, pv string) error {
+func (lg *LvmGraph) AddVolumeGroup(name string, pv string, size uint64) error {
 	id := fmt.Sprintf("vg:%s", name)
 
 	vg, found := lg.nodes[id]
 	if !found {
-		vg = NewVolumeGroup(name)
+		vg = NewVolumeGroup(name, size)
 	}
 
 	pvId := fmt.Sprintf("pv:%s", pv)
@@ -138,8 +143,8 @@ func (lg *LvmGraph) AddVolumeGroup(name string, pv string) error {
 	return nil
 }
 
-func (lg *LvmGraph) AddLogicalVolume(name string, vg string, state LvmNodeState) error {
-	lv := NewLogicalVolume(name, vg, state)
+func (lg *LvmGraph) AddLogicalVolume(name string, vg string, state LvmNodeState, size uint64) error {
+	lv := NewLogicalVolume(name, vg, state, size)
 
 	_, found := lg.nodes[lv.id]
 	if found {

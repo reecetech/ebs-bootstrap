@@ -24,6 +24,7 @@ const (
 	XfsGrowfs Binary = "xfs_growfs"
 	Pvs       Binary = "pvs"
 	PvCreate  Binary = "pvcreate"
+	PvResize  Binary = "pvresize"
 	Vgs       Binary = "vgs"
 	VgCreate  Binary = "vgcreate"
 	Lvs       Binary = "lvs"
