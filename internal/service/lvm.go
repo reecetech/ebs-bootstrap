@@ -102,7 +102,7 @@ func (ls *LinuxLvmService) GetPhysicalVolumes() ([]*model.PhysicalVolume, error)
 	for i, pv := range pr.Report[0].PhysicalVolume {
 		size, err := strconv.ParseUint(pv.PhysicalVolumeSize, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("🔴 Failed to cast device size to unsigned 64-bit integer")
+			return nil, fmt.Errorf("🔴 Failed to cast physical volume size to unsigned 64-bit integer")
 		}
 		pvs[i] = &model.PhysicalVolume{
 			Name: pv.Name,

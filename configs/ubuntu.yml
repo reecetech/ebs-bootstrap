@@ -1,12 +1,19 @@
 defaults:
   lvmConsumption: 100
+  resizeFs: true
+  resizeThreshold: 99
 devices:
   /dev/vdb:
     fs: xfs
-    lvm: ifmx-var
+    lvm: ifmx-etc
     mountPoint: /mnt/foo
     user: ubuntu
     group: ubuntu
     permissions: 755
-    resize: true
-    resizeThreshold: 99
+  /dev/vdc:
+    fs: xfs
+    lvm: ifmx-var
+    mountPoint: /mnt/bar
+    user: ubuntu
+    group: ubuntu
+    permissions: 755

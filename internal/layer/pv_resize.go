@@ -66,7 +66,7 @@ func (rpvl *ResizePhysicalVolumeLayer) Validate(c *config.Config) error {
 			continue
 		}
 		if rpvl.lvmBackend.ShouldResizePhysicalVolume(name, ResizeThreshold) {
-			return fmt.Errorf("🔴 %s: Failed to resize physical volume", name)
+			return fmt.Errorf("🔴 %s: Failed to resize validation checks. Physical volume %s still needs to be resized", name, name)
 		}
 	}
 	return nil
