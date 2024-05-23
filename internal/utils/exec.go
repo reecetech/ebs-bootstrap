@@ -30,6 +30,7 @@ const (
 	Lvs       Binary = "lvs"
 	LvCreate  Binary = "lvcreate"
 	LvChange  Binary = "lvchange"
+	LvExtend  Binary = "lvextend"
 )
 
 type RunnerFactory interface {

@@ -220,3 +220,7 @@ func (lg *LvmGraph) GetChildren(node *LvmNode, state LvmNodeCategory) []*LvmNode
 	}
 	return children
 }
+
+func (lg *LvmGraph) Clear() {
+	lg.nodes = map[string]*LvmNode{}
+}

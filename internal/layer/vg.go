@@ -24,7 +24,10 @@ func (cvgl *CreateVolumeGroupLayer) Modify(c *config.Config) ([]action.Action, e
 		if len(cd.Lvm) == 0 {
 			continue
 		}
-		vg := cvgl.lvmBackend.SearchVolumeGroup(name)
+		vg, err := cvgl.lvmBackend.SearchVolumeGroup(name)
+		if err != nil {
+			return nil, err
+		}
 		if vg != nil && vg.Name != cd.Lvm {
 			return nil, fmt.Errorf("🔴 %s: Physical volume %s already has volume group %s associated", name, name, vg.Name)
 		}

@@ -53,12 +53,11 @@ func (lfb *LinuxOwnerBackend) GetGroup(group string) (*model.Group, error) {
 }
 
 func (lfb *LinuxOwnerBackend) From(config *config.Config) error {
-	// Clear representation of users and groups
 	lfb.users = nil
 	lfb.groups = nil
-
 	users := map[string]*model.User{}
 	groups := map[string]*model.Group{}
+
 	for _, cd := range config.Devices {
 		if len(cd.User) > 0 {
 			o, err := lfb.ownerService.GetUser(cd.User)

@@ -89,10 +89,9 @@ func (lfb *LinuxFileBackend) IsMount(p string) bool {
 }
 
 func (lfb *LinuxFileBackend) From(config *config.Config) error {
-	// Clear representation of files
 	lfb.files = nil
-
 	files := map[string]*model.File{}
+
 	for _, cd := range config.Devices {
 		if len(cd.MountPoint) == 0 {
 			continue
