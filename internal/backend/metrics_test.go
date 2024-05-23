@@ -57,23 +57,23 @@ func TestLinuxDeviceMetricsBackendShouldResize(t *testing.T) {
 		BlockDeviceMetrics *model.BlockDeviceMetrics
 		ExpectedOutput     bool
 	}{
-		// FileSystemThreshold = 99.9%
-		// 9989 / 10000 → 99.89% < 99.9% → true
+		// FileSystemThreshold = 99.999%
+		// 999989 / 1000000 → 99.9989% < 99.999% → true
 		{
 			Name: "Should Resize",
 			BlockDeviceMetrics: &model.BlockDeviceMetrics{
-				FileSystemSize:  9989,
-				BlockDeviceSize: 10000,
+				FileSystemSize:  999989,
+				BlockDeviceSize: 1000000,
 			},
 			ExpectedOutput: true,
 		},
-		// FileSystemThreshold = 99.9%
-		// 9999 / 10000 → 99.9% < 99.9% → false
+		// FileSystemThreshold = 99.999%
+		// 999990 / 100000 → 99.999% < 99.999% → false
 		{
 			Name: "Should Not Resize",
 			BlockDeviceMetrics: &model.BlockDeviceMetrics{
-				FileSystemSize:  9990,
-				BlockDeviceSize: 10000,
+				FileSystemSize:  999990,
+				BlockDeviceSize: 1000000,
 			},
 			ExpectedOutput: false,
 		},

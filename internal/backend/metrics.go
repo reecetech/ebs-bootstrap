@@ -19,9 +19,16 @@ const (
 	//	  slightly less than that of the underlying block device
 	//	- This is likely due to reserved sections that store
 	//	  file system metadata
-	//	- Therefore we set the threshold to 99.9% to avoid
+	//	- Therefore we set the threshold to 99.999% to avoid
 	//	  unnecessary resize operations
-	FileSystemResizeThreshold = float64(99.9)
+	// Why is the threshold set to 99.999%?
+	//	- The largest EBS volume you can provision is a 64 TiB
+	//	  io2 Block Express volume.
+	//	- EBS volumes can only be specified in increments of 1 GiB
+	//	- 64 TiB = 65536 GiB | 99.999 % * 65536 = 65535.34 GiB
+	//	- Therefore, a resize threshold of 99.999% ensures a resize
+	//	  operation from 65535 GiB to 65536 GiB, since 65535 < 65535.34
+	FileSystemResizeThreshold = float64(99.999)
 )
 
 type DeviceMetricsBackend interface {

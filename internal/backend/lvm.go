@@ -13,7 +13,7 @@ import (
 const (
 	// The % tolerance to expect the logical volume size to be within
 	// -------------------------------------------------------
-	// If the (logical volume / volume group size) * 100 is less than
+	// If the (logical volume size / volume group size) * 100 is less than
 	// (lvmConsumption% - tolerance%) then we perform a resize operation
 	// -------------------------------------------------------
 	// If the (logical volume / volume group size) * 100 is greater than
@@ -31,7 +31,7 @@ const (
 	LogicalVolumeResizeTolerance = float64(0.1)
 	// The % threshold at which to resize a physical volume
 	// -------------------------------------------------------
-	// If the (physical volume / device size) * 100 falls
+	// If the (physical volume size / device size) * 100 falls
 	// under this threshold then we perform a resize operation
 	// -------------------------------------------------------
 	// The smallest gp3 EBS volume you can create is 1GiB (1073741824 bytes).
