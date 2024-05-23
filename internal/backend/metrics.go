@@ -8,8 +8,25 @@ import (
 	"github.com/reecetech/ebs-bootstrap/internal/service"
 )
 
+const (
+	// The % threshold at which to resize a file system
+	// -------------------------------------------------------
+	// If the (file system size / device size) * 100 falls
+	// under this threshold then we perform a resize operation
+	// -------------------------------------------------------
+	// Why is the threshold not set to 100%?
+	//	- A completely extended file system may be size that is
+	//	  slightly less than that of the underlying block device
+	//	- This is likely due to reserved sections that store
+	//	  file system metadata
+	//	- Therefore we set the threshold to 99.9% to avoid
+	//	  unnecessary resize operations
+	FileSystemResizeThreshold = float64(99.9)
+)
+
 type DeviceMetricsBackend interface {
 	GetBlockDeviceMetrics(name string) (*model.BlockDeviceMetrics, error)
+	ShouldResize(bdm *model.BlockDeviceMetrics) bool
 	From(config *config.Config) error
 }
 
@@ -41,6 +58,10 @@ func (dmb *LinuxDeviceMetricsBackend) GetBlockDeviceMetrics(name string) (*model
 		return nil, fmt.Errorf("🔴 %s: Could not find block device metrics", name)
 	}
 	return metrics, nil
+}
+
+func (dmb *LinuxDeviceMetricsBackend) ShouldResize(bdm *model.BlockDeviceMetrics) bool {
+	return (float64(bdm.FileSystemSize) / float64(bdm.BlockDeviceSize) * 100) < FileSystemResizeThreshold
 }
 
 func (dmb *LinuxDeviceMetricsBackend) From(config *config.Config) error {

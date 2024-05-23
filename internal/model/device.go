@@ -32,9 +32,3 @@ type BlockDeviceMetrics struct {
 	FileSystemSize  uint64
 	BlockDeviceSize uint64
 }
-
-func (bdm *BlockDeviceMetrics) ShouldResize(threshold float64) bool {
-	// Minimum File System Size (mfss)
-	mfss := float64(bdm.BlockDeviceSize) * (threshold / 100)
-	return float64(bdm.FileSystemSize) < mfss
-}

@@ -10,6 +10,44 @@ import (
 	"github.com/reecetech/ebs-bootstrap/internal/service"
 )
 
+const (
+	// The % tolerance to expect the logical volume size to be within
+	// -------------------------------------------------------
+	// If the (logical volume / volume group size) * 100 is less than
+	// (lvmConsumption% - tolerance%) then we perform a resize operation
+	// -------------------------------------------------------
+	// If the (logical volume / volume group size) * 100 is greater than
+	// (lvmConsumption% + tolerance%) then the user is attempting a downsize
+	// operation. We outright deny this as downsizing can be a destructive
+	// operation
+	// -------------------------------------------------------
+	// Why implement a tolernace-based policy for resizing?
+	// 	- When creating a Logical Volume, `ebs-bootstrap` issues a command like
+	// 		`lvcreate -l 20%VG -n lv_name vg_name`
+	// 	- When we calculate how much percentage of the volume group has been
+	// 		consumed by the logical volume, the value would look like 20.0052096...
+	// 	- A tolerance establishes a window of acceptable values for avoiding a
+	// 		resizing operation
+	LogicalVolumeResizeTolerance = float64(0.1)
+	// The % threshold at which to resize a physical volume
+	// -------------------------------------------------------
+	// If the (physical volume / device size) * 100 falls
+	// under this threshold then we perform a resize operation
+	// -------------------------------------------------------
+	// The smallest gp3 EBS volume you can create is 1GiB (1073741824 bytes).
+	// The default size of the extent of a PV is 4 MiB (4194304 bytes).
+	// Typically, the first extent of a PV is reserved for metadata. This
+	// produces a PV of size 1069547520 bytes (Usage=99.6093%). We ensure
+	// that we set the resize threshold to 99.6% to ensure that a 1 GiB EBS
+	// volume won't be always resized
+	// -------------------------------------------------------
+	// Why not just look for a difference of 4194304 bytes?
+	//	- The size of the extent can be changed by the user
+	//	- Therefore we may not always see a difference of 4194304 bytes between
+	//	  the block device and physical volume size
+	PhysicalVolumeResizeThreshold = float64(99.6)
+)
+
 type LvmBackend interface {
 	CreatePhysicalVolume(name string) action.Action
 	CreateVolumeGroup(name string, physicalVolume string) action.Action
@@ -19,9 +57,9 @@ type LvmBackend interface {
 	GetLogicalVolume(name string, volumeGroup string) (*model.LogicalVolume, error)
 	SearchLogicalVolumes(volumeGroup string) ([]*model.LogicalVolume, error)
 	SearchVolumeGroup(physicalVolume string) (*model.VolumeGroup, error)
-	ShouldResizePhysicalVolume(name string, threshold float64) (bool, error)
+	ShouldResizePhysicalVolume(name string) (bool, error)
 	ResizePhysicalVolume(name string) action.Action
-	ShouldResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent int, tolerance float64) (bool, error)
+	ShouldResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) (bool, error)
 	ResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) action.Action
 	From(config *config.Config) error
 }
@@ -124,7 +162,7 @@ func (lb *LinuxLvmBackend) ActivateLogicalVolume(name string, volumeGroup string
 	return action.NewActivateLogicalVolumeAction(name, volumeGroup, lb.lvmService)
 }
 
-func (lb *LinuxLvmBackend) ShouldResizePhysicalVolume(name string, threshold float64) (bool, error) {
+func (lb *LinuxLvmBackend) ShouldResizePhysicalVolume(name string) (bool, error) {
 	pvn, err := lb.lvmGraph.GetPhysicalVolume(name)
 	if err != nil {
 		return false, nil
@@ -133,16 +171,16 @@ func (lb *LinuxLvmBackend) ShouldResizePhysicalVolume(name string, threshold flo
 	if len(dn) == 0 {
 		return false, nil
 	}
-	return (float64(pvn.Size) / float64(dn[0].Size) * 100) < threshold, nil
+	return (float64(pvn.Size) / float64(dn[0].Size) * 100) < PhysicalVolumeResizeThreshold, nil
 }
 
 func (lb *LinuxLvmBackend) ResizePhysicalVolume(name string) action.Action {
 	return action.NewResizePhysicalVolumeAction(name, lb.lvmService)
 }
 
-func (lb *LinuxLvmBackend) ShouldResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent int, tolerance float64) (bool, error) {
-	left := float64(volumeGroupPercent) - tolerance
-	right := float64(volumeGroupPercent) + tolerance
+func (lb *LinuxLvmBackend) ShouldResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) (bool, error) {
+	left := float64(volumeGroupPercent) - LogicalVolumeResizeTolerance
+	right := float64(volumeGroupPercent) + LogicalVolumeResizeTolerance
 	lvn, err := lb.lvmGraph.GetLogicalVolume(name, volumeGroup)
 	if err != nil {
 		return false, err

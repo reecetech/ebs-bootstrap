@@ -1,6 +1,5 @@
 defaults:
-  resizeFs: true
-  resizeThreshold: 99
+  resize: true
 devices:
   /dev/vdb:
     fs: xfs
@@ -17,4 +16,4 @@ devices:
     user: ubuntu
     group: ubuntu
     permissions: 755
-    lvmConsumption: 30
+    lvmConsumption: 100

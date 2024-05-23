@@ -17,13 +17,12 @@ const (
 )
 
 type Flag struct {
-	Config          string
-	Mode            string
-	Remount         bool
-	MountOptions    string
-	ResizeFs        bool
-	ResizeThreshold float64
-	LvmConsumption  int
+	Config         string
+	Mode           string
+	Remount        bool
+	MountOptions   string
+	Resize         bool
+	LvmConsumption int
 }
 
 type Device struct {
@@ -38,12 +37,11 @@ type Device struct {
 }
 
 type Options struct {
-	Mode            model.Mode         `yaml:"mode"`
-	Remount         bool               `yaml:"remount"`
-	MountOptions    model.MountOptions `yaml:"mountOptions"`
-	ResizeFs        bool               `yaml:"resizeFs"`
-	ResizeThreshold float64            `yaml:"resizeThreshold"`
-	LvmConsumption  int                `yaml:"lvmConsumption"`
+	Mode           model.Mode         `yaml:"mode"`
+	Remount        bool               `yaml:"remount"`
+	MountOptions   model.MountOptions `yaml:"mountOptions"`
+	Resize         bool               `yaml:"resize"`
+	LvmConsumption int                `yaml:"lvmConsumption"`
 }
 
 // We don't export "overrides" as this is an attribute that is used
@@ -100,8 +98,7 @@ func parseFlags(program string, args []string) (*Flag, error) {
 	flags.StringVar(&f.Mode, "mode", "", "override for mode")
 	flags.BoolVar(&f.Remount, "remount", false, "override for remount")
 	flags.StringVar(&f.MountOptions, "mount-options", "", "override for mount options")
-	flags.BoolVar(&f.ResizeFs, "resize-fs", false, "override for resize filesystem")
-	flags.Float64Var(&f.ResizeThreshold, "resize-threshold", 0, "override for resize threshold")
+	flags.BoolVar(&f.Resize, "resize", false, "override for resize filesystem")
 	flags.IntVar(&f.LvmConsumption, "lvm-consumption", 0, "override for lvm consumption")
 
 	// Actually parse the flag
@@ -117,8 +114,8 @@ func (c *Config) setOverrides(f *Flag) *Config {
 	c.overrides.Mode = model.Mode(f.Mode)
 	c.overrides.Remount = f.Remount
 	c.overrides.MountOptions = model.MountOptions(f.MountOptions)
-	c.overrides.ResizeFs = f.ResizeFs
-	c.overrides.ResizeThreshold = f.ResizeThreshold
+	c.overrides.Resize = f.Resize
+	c.overrides.LvmConsumption = f.LvmConsumption
 	return c
 }
 
@@ -164,26 +161,12 @@ func (c *Config) GetMountOptions(name string) model.MountOptions {
 	return DefaultMountOptions
 }
 
-func (c *Config) GetResizeFs(name string) bool {
+func (c *Config) GetResize(name string) bool {
 	cd, found := c.Devices[name]
 	if !found {
 		return false
 	}
-	return c.overrides.ResizeFs || c.Defaults.ResizeFs || cd.ResizeFs
-}
-
-func (c *Config) GetResizeThreshold(name string) float64 {
-	cd, found := c.Devices[name]
-	if !found {
-		return 0
-	}
-	if c.overrides.ResizeThreshold > 0 {
-		return c.overrides.ResizeThreshold
-	}
-	if cd.ResizeThreshold > 0 {
-		return cd.ResizeThreshold
-	}
-	return c.Defaults.ResizeThreshold
+	return c.overrides.Resize || c.Defaults.Resize || cd.Resize
 }
 
 func (c *Config) GetLvmConsumption(name string) int {

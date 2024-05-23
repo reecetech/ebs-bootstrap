@@ -30,8 +30,7 @@ devices:
     group: root
     permissions: 755
     label: external-vol
-    resizeFs: true
-    resizeThreshold: 95
+    resize: true
     remount: true`),
 			ExpectedOutput: &Config{
 				Defaults: Options{
@@ -46,9 +45,8 @@ devices:
 						Permissions: model.FilePermissions(0755),
 						Label:       "external-vol",
 						Options: Options{
-							ResizeFs:        true,
-							ResizeThreshold: 95,
-							Remount:         true,
+							Resize:  true,
+							Remount: true,
 						},
 					},
 				},
@@ -133,14 +131,12 @@ devices:
     mode: prompt
     remount: true
     mountOptions: nouuid
-    resizeFs: true
-    resizeThreshold: 95`, device)),
+    resize: true`, device)),
 			ExpectedOutput: &Options{
-				Mode:            model.Prompt,
-				Remount:         true,
-				MountOptions:    "nouuid",
-				ResizeFs:        true,
-				ResizeThreshold: 95,
+				Mode:         model.Prompt,
+				Remount:      true,
+				MountOptions: "nouuid",
+				Resize:       true,
 			},
 			ExpectedError: nil,
 		},
@@ -150,11 +146,10 @@ devices:
 devices:
   /dev/nonexist: ~`),
 			ExpectedOutput: &Options{
-				Mode:            model.Healthcheck,
-				Remount:         false,
-				MountOptions:    "defaults",
-				ResizeFs:        false,
-				ResizeThreshold: 0,
+				Mode:         model.Healthcheck,
+				Remount:      false,
+				MountOptions: "defaults",
+				Resize:       false,
 			},
 			ExpectedError: nil,
 		},
@@ -169,11 +164,10 @@ devices:
 			utils.CheckError("config.New()", t, subtest.ExpectedError, err)
 
 			d := &Options{
-				Mode:            c.GetMode(device),
-				Remount:         c.GetRemount(device),
-				MountOptions:    c.GetMountOptions(device),
-				ResizeFs:        c.GetResizeFs(device),
-				ResizeThreshold: c.GetResizeThreshold(device),
+				Mode:         c.GetMode(device),
+				Remount:      c.GetRemount(device),
+				MountOptions: c.GetMountOptions(device),
+				Resize:       c.GetResize(device),
 			}
 			utils.CheckOutput("config.New()", t, subtest.ExpectedOutput, d)
 		})
@@ -197,11 +191,10 @@ devices:
 			Name: "Mode Flag Options",
 			Args: []string{"ebs-bootstrap", "-config", c, "-mode", string(model.Force)},
 			ExpectedOutput: &Options{
-				Mode:            model.Force,
-				Remount:         false,
-				MountOptions:    "defaults",
-				ResizeFs:        false,
-				ResizeThreshold: 0,
+				Mode:         model.Force,
+				Remount:      false,
+				MountOptions: "defaults",
+				Resize:       false,
 			},
 			ExpectedError: nil,
 		},
@@ -209,23 +202,21 @@ devices:
 			Name: "Mount Flag Options",
 			Args: []string{"ebs-bootstrap", "-config", c, "-remount", "-mount-options", "nouuid"},
 			ExpectedOutput: &Options{
-				Mode:            model.Healthcheck,
-				Remount:         true,
-				MountOptions:    "nouuid",
-				ResizeFs:        false,
-				ResizeThreshold: 0,
+				Mode:         model.Healthcheck,
+				Remount:      true,
+				MountOptions: "nouuid",
+				Resize:       false,
 			},
 			ExpectedError: nil,
 		},
 		{
 			Name: "Resize Flag Options",
-			Args: []string{"ebs-bootstrap", "-config", c, "-resize-fs", "-resize-threshold", "95"},
+			Args: []string{"ebs-bootstrap", "-config", c, "-resize"},
 			ExpectedOutput: &Options{
-				Mode:            model.Healthcheck,
-				Remount:         false,
-				MountOptions:    "defaults",
-				ResizeFs:        true,
-				ResizeThreshold: 95,
+				Mode:         model.Healthcheck,
+				Remount:      false,
+				MountOptions: "defaults",
+				Resize:       true,
 			},
 			ExpectedError: nil,
 		},
@@ -236,11 +227,10 @@ devices:
 			utils.CheckError("config.New()", t, subtest.ExpectedError, err)
 
 			o := &Options{
-				Mode:            c.GetMode(device),
-				Remount:         c.GetRemount(device),
-				MountOptions:    c.GetMountOptions(device),
-				ResizeFs:        c.GetResizeFs(device),
-				ResizeThreshold: c.GetResizeThreshold(device),
+				Mode:         c.GetMode(device),
+				Remount:      c.GetRemount(device),
+				MountOptions: c.GetMountOptions(device),
+				Resize:       c.GetResize(device),
 			}
 			utils.CheckOutput("config.New()", t, subtest.ExpectedOutput, o)
 		})
@@ -263,11 +253,10 @@ defaults:
 devices:
   %s: ~`, device)),
 			ExpectedOutput: &Options{
-				Mode:            model.Force,
-				Remount:         false,
-				MountOptions:    "defaults",
-				ResizeFs:        false,
-				ResizeThreshold: 0,
+				Mode:         model.Force,
+				Remount:      false,
+				MountOptions: "defaults",
+				Resize:       false,
 			},
 			ExpectedError: nil,
 		},
@@ -280,11 +269,10 @@ defaults:
 devices:
   %s: ~`, device)),
 			ExpectedOutput: &Options{
-				Mode:            model.Healthcheck,
-				Remount:         true,
-				MountOptions:    "nouuid",
-				ResizeFs:        false,
-				ResizeThreshold: 0,
+				Mode:         model.Healthcheck,
+				Remount:      true,
+				MountOptions: "nouuid",
+				Resize:       false,
 			},
 			ExpectedError: nil,
 		},
@@ -292,16 +280,14 @@ devices:
 			Name: "Resize Default Options",
 			Data: []byte(fmt.Sprintf(`---
 defaults:
-  resizeFs: true
-  resizeThreshold: 95
+  resize: true
 devices:
   %s: ~`, device)),
 			ExpectedOutput: &Options{
-				Mode:            model.Healthcheck,
-				Remount:         false,
-				MountOptions:    "defaults",
-				ResizeFs:        true,
-				ResizeThreshold: 95,
+				Mode:         model.Healthcheck,
+				Remount:      false,
+				MountOptions: "defaults",
+				Resize:       true,
 			},
 			ExpectedError: nil,
 		},
@@ -316,11 +302,10 @@ devices:
 			utils.CheckError("config.New()", t, subtest.ExpectedError, err)
 
 			d := &Options{
-				Mode:            c.GetMode(device),
-				Remount:         c.GetRemount(device),
-				MountOptions:    c.GetMountOptions(device),
-				ResizeFs:        c.GetResizeFs(device),
-				ResizeThreshold: c.GetResizeThreshold(device),
+				Mode:         c.GetMode(device),
+				Remount:      c.GetRemount(device),
+				MountOptions: c.GetMountOptions(device),
+				Resize:       c.GetResize(device),
 			}
 			utils.CheckOutput("config.New()", t, subtest.ExpectedOutput, d)
 		})

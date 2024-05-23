@@ -8,27 +8,6 @@ import (
 	"github.com/reecetech/ebs-bootstrap/internal/config"
 )
 
-const (
-	// The % tolerance to expect the logical volume size to be within
-	// -------------------------------------------------------
-	// If the (logical volume / volume group size) * 100 is less than
-	// (lvmConsumption% - tolerance%) then we perform a resize operation
-	// -------------------------------------------------------
-	// If the (logical volume / volume group size) * 100 is greater than
-	// (lvmConsumption% + tolerance%) then the user is attempting a downsize
-	// operation. We outright deny this as downsizing can be a destructive
-	// operation
-	// -------------------------------------------------------
-	// Why implement a tolernace-based policy for resizing?
-	// 	- When creating a Logical Volume, `ebs-bootstrap` issues a command like
-	// 		`lvcreate -l 20%VG -n lv_name vg_name`
-	// 	- When we calculate how much percentage of the volume group has been
-	// 		consumed by the logical volume, the value would look like 20.0052096...
-	// 	- A tolerance establishes a window of acceptable values for avoiding a
-	// 		resizing operation
-	ResizeTolerance = float64(0.1)
-)
-
 type ResizeLogicalVolumeLayer struct {
 	lvmBackend backend.LvmBackend
 }
@@ -45,10 +24,10 @@ func (rpvl *ResizeLogicalVolumeLayer) Modify(c *config.Config) ([]action.Action,
 		if len(cd.Lvm) == 0 {
 			continue
 		}
-		if !c.GetResizeFs(name) {
+		if !c.GetResize(name) {
 			continue
 		}
-		shouldResize, err := rpvl.lvmBackend.ShouldResizeLogicalVolume(cd.Lvm, cd.Lvm, c.GetLvmConsumption(name), ResizeTolerance)
+		shouldResize, err := rpvl.lvmBackend.ShouldResizeLogicalVolume(cd.Lvm, cd.Lvm, c.GetLvmConsumption(name))
 		if err != nil {
 			return nil, err
 		}
@@ -67,10 +46,10 @@ func (rpvl *ResizeLogicalVolumeLayer) Validate(c *config.Config) error {
 		if len(cd.Lvm) == 0 {
 			continue
 		}
-		if !c.GetResizeFs(name) {
+		if !c.GetResize(name) {
 			continue
 		}
-		shouldResize, err := rpvl.lvmBackend.ShouldResizeLogicalVolume(cd.Lvm, cd.Lvm, c.GetLvmConsumption(name), ResizeTolerance)
+		shouldResize, err := rpvl.lvmBackend.ShouldResizeLogicalVolume(cd.Lvm, cd.Lvm, c.GetLvmConsumption(name))
 		if err != nil {
 			return err
 		}
@@ -91,7 +70,7 @@ func (rpvl *ResizeLogicalVolumeLayer) From(c *config.Config) error {
 
 func (rpvl *ResizeLogicalVolumeLayer) ShouldProcess(c *config.Config) bool {
 	for name, cd := range c.Devices {
-		if len(cd.Lvm) > 0 && c.GetResizeFs(name) {
+		if len(cd.Lvm) > 0 && c.GetResize(name) {
 			return true
 		}
 	}
