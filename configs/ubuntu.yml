@@ -17,4 +17,4 @@ devices:
     user: ubuntu
     group: ubuntu
     permissions: 755
-    lvmConsumption: 20
+    lvmConsumption: 30

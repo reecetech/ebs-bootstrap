@@ -117,10 +117,12 @@ func (db *LinuxDeviceBackend) Umount(bd *model.BlockDevice) action.Action {
 }
 
 func (db *LinuxDeviceBackend) From(config *config.Config) error {
-	// Clear representation of devices
+	// We populate a temporary map and then assign it to the backend
+	// after all objects have been successfully added. This avoids a partial
+	// state in the event of failure during one of intermediate steps.
 	db.blockDevices = nil
-
 	blockDevices := map[string]*model.BlockDevice{}
+
 	for name := range config.Devices {
 		d, err := db.deviceService.GetBlockDevice(name)
 		if err != nil {
