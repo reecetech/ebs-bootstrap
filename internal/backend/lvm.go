@@ -44,7 +44,7 @@ func (lb *LinuxLvmBackend) GetVolumeGroups(name string) []*model.VolumeGroup {
 	if err != nil {
 		return vgs
 	}
-	pvn := lb.lvmGraph.GetParents(node, datastructures.PhysicalVolume)
+	pvn := lb.lvmGraph.GetParents(node, model.PhysicalVolumeKind)
 	for _, pv := range pvn {
 		vgs = append(vgs, &model.VolumeGroup{
 			Name:           node.Name,
@@ -59,14 +59,14 @@ func (lb *LinuxLvmBackend) GetLogicalVolume(name string, volumeGroup string) (*m
 	if err != nil {
 		return nil, err
 	}
-	vgs := lb.lvmGraph.GetParents(node, datastructures.VolumeGroup)
+	vgs := lb.lvmGraph.GetParents(node, model.VolumeGroupKind)
 	if len(vgs) == 0 {
 		return nil, fmt.Errorf("🔴 %s: Logical volume has no volume group", node.Name)
 	}
 	return &model.LogicalVolume{
 		Name:        node.Name,
 		VolumeGroup: vgs[0].Name,
-		State:       model.LogicalVolumeState(node.State),
+		State:       node.State,
 	}, nil
 }
 
@@ -76,12 +76,12 @@ func (lb *LinuxLvmBackend) SearchLogicalVolumes(volumeGroup string) ([]*model.Lo
 	if err != nil {
 		return nil, err
 	}
-	lvn := lb.lvmGraph.GetChildren(node, datastructures.LogicalVolume)
+	lvn := lb.lvmGraph.GetChildren(node, model.LogicalVolumeKind)
 	for _, lv := range lvn {
 		lvs = append(lvs, &model.LogicalVolume{
 			Name:        lv.Name,
 			VolumeGroup: node.Name,
-			State:       model.LogicalVolumeState(lv.State),
+			State:       lv.State,
 			Size:        lv.Size,
 		})
 	}
@@ -93,7 +93,7 @@ func (lb *LinuxLvmBackend) SearchVolumeGroup(physicalVolume string) (*model.Volu
 	if err != nil {
 		return nil, err
 	}
-	vgn := lb.lvmGraph.GetChildren(node, datastructures.VolumeGroup)
+	vgn := lb.lvmGraph.GetChildren(node, model.VolumeGroupKind)
 	if len(vgn) == 0 {
 		return nil, fmt.Errorf("🔴 %s: Physical volume has no volume group", physicalVolume)
 	}
@@ -125,7 +125,7 @@ func (lb *LinuxLvmBackend) ShouldResizePhysicalVolume(name string, threshold flo
 	if err != nil {
 		return false, nil
 	}
-	dvn := lb.lvmGraph.GetParents(node, datastructures.Device)
+	dvn := lb.lvmGraph.GetParents(node, model.DeviceKind)
 	if len(dvn) == 0 {
 		return false, nil
 	}
@@ -143,7 +143,7 @@ func (lb *LinuxLvmBackend) ShouldResizeLogicalVolume(name string, volumeGroup st
 	if err != nil {
 		return false, err
 	}
-	vgn := lb.lvmGraph.GetParents(node, datastructures.VolumeGroup)
+	vgn := lb.lvmGraph.GetParents(node, model.VolumeGroupKind)
 	if len(vgn) == 0 {
 		return false, fmt.Errorf("🔴 %s: Logical volume has no volume group", name)
 	}
@@ -200,7 +200,7 @@ func (db *LinuxLvmBackend) From(config *config.Config) error {
 		return err
 	}
 	for _, lv := range lvs {
-		err := lvmGraph.AddLogicalVolume(lv.Name, lv.VolumeGroup, datastructures.LvmNodeState(lv.State), lv.Size)
+		err := lvmGraph.AddLogicalVolume(lv.Name, lv.VolumeGroup, lv.State, lv.Size)
 		if err != nil {
 			return err
 		}

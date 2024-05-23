@@ -133,6 +133,7 @@ func (ls *LinuxLvmService) GetVolumeGroups() ([]*model.VolumeGroup, error) {
 		vgs[i] = &model.VolumeGroup{
 			Name:           vg.Name,
 			PhysicalVolume: vg.PhysicalVolume,
+			State:          model.VolumeGroupInactive,
 			Size:           size,
 		}
 	}
@@ -152,19 +153,23 @@ func (ls *LinuxLvmService) GetLogicalVolumes() ([]*model.LogicalVolume, error) {
 	}
 	lvs := make([]*model.LogicalVolume, len(lr.Report[0].LogicalVolume))
 	for i, lv := range lr.Report[0].LogicalVolume {
-		var state model.LogicalVolumeState
+		// Get Logical Volume State
+		var state model.LvmState
 		switch lv.Attributes[4] {
 		case 'a':
-			state = model.Active
+			state = model.LogicalVolumeActive
 		case '-':
-			state = model.Inactive
+			state = model.LogicalVolumeInactive
 		default:
-			state = model.Unsupported
+			state = model.LogicalVolumeUnsupported
 		}
+
+		// Get Logical Volume Size
 		size, err := strconv.ParseUint(lv.Size, 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("🔴 Failed to cast logical volume size to unsigned 64-bit integer")
 		}
+
 		lvs[i] = &model.LogicalVolume{
 			Name:        lv.Name,
 			VolumeGroup: lv.VolumeGroup,

@@ -2,32 +2,14 @@ package datastructures
 
 import (
 	"fmt"
-)
 
-type LvmNodeState int32
-type LvmNodeCategory int32
-
-const (
-	DeviceActive             LvmNodeState = 0b0000001
-	PhysicalVolumeActive     LvmNodeState = 0b0000010
-	VolumeGroupInactive      LvmNodeState = 0b0000100
-	VolumeGroupActive        LvmNodeState = 0b0001100
-	LogicalVolumeInactive    LvmNodeState = 0b0010000
-	LogicalVolumeActive      LvmNodeState = 0b0110000
-	LogicalVolumeUnsupported LvmNodeState = 0b1110000
-)
-
-const (
-	Device         LvmNodeCategory = 0b0000001
-	PhysicalVolume LvmNodeCategory = 0b0000010
-	VolumeGroup    LvmNodeCategory = 0b0000100
-	LogicalVolume  LvmNodeCategory = 0b0010000
+	"github.com/reecetech/ebs-bootstrap/internal/model"
 )
 
 type LvmNode struct {
 	id       string
 	Name     string
-	State    LvmNodeState
+	State    model.LvmState
 	Size     uint64
 	children []*LvmNode
 	parents  []*LvmNode
@@ -37,7 +19,7 @@ func NewDevice(name string, size uint64) *LvmNode {
 	return &LvmNode{
 		id:       fmt.Sprintf("device:%s", name),
 		Name:     name,
-		State:    DeviceActive,
+		State:    model.DeviceActive,
 		Size:     size,
 		children: []*LvmNode{},
 		parents:  []*LvmNode{},
@@ -48,7 +30,7 @@ func NewPhysicalVolume(name string, size uint64) *LvmNode {
 	return &LvmNode{
 		id:       fmt.Sprintf("pv:%s", name),
 		Name:     name,
-		State:    PhysicalVolumeActive,
+		State:    model.PhysicalVolumeActive,
 		Size:     size,
 		children: []*LvmNode{},
 		parents:  []*LvmNode{},
@@ -59,14 +41,14 @@ func NewVolumeGroup(name string, size uint64) *LvmNode {
 	return &LvmNode{
 		id:       fmt.Sprintf("vg:%s", name),
 		Name:     name,
-		State:    VolumeGroupInactive,
+		State:    model.VolumeGroupInactive,
 		Size:     size,
 		children: []*LvmNode{},
 		parents:  []*LvmNode{},
 	}
 }
 
-func NewLogicalVolume(name string, vg string, State LvmNodeState, size uint64) *LvmNode {
+func NewLogicalVolume(name string, vg string, State model.LvmState, size uint64) *LvmNode {
 	return &LvmNode{
 		id:       fmt.Sprintf("lv:%s:vg:%s", name, vg),
 		Name:     name,
@@ -143,7 +125,7 @@ func (lg *LvmGraph) AddVolumeGroup(name string, pv string, size uint64) error {
 	return nil
 }
 
-func (lg *LvmGraph) AddLogicalVolume(name string, vg string, state LvmNodeState, size uint64) error {
+func (lg *LvmGraph) AddLogicalVolume(name string, vg string, state model.LvmState, size uint64) error {
 	lv := NewLogicalVolume(name, vg, state, size)
 
 	_, found := lg.nodes[lv.id]
@@ -164,8 +146,8 @@ func (lg *LvmGraph) AddLogicalVolume(name string, vg string, state LvmNodeState,
 	// If at least one of the logical volumes are active, the
 	// volume group is considered active
 	for _, lvn := range vgn.children {
-		if lvn.State == LogicalVolumeActive {
-			vgn.State = VolumeGroupActive
+		if lvn.State == model.LogicalVolumeActive {
+			vgn.State = model.VolumeGroupActive
 			break
 		}
 	}
@@ -199,22 +181,22 @@ func (lg *LvmGraph) GetLogicalVolume(name string, vg string) (*LvmNode, error) {
 	return node, nil
 }
 
-func (lg *LvmGraph) GetParents(node *LvmNode, state LvmNodeCategory) []*LvmNode {
+func (lg *LvmGraph) GetParents(node *LvmNode, kind model.LvmKind) []*LvmNode {
 	parents := []*LvmNode{}
 	for _, p := range node.parents {
-		// Bitmasking to check if the parent nodes is of the desired category
-		if int32(p.State)&int32(state) > 0 {
+		// Bitmasking to check if the parent nodes is of the desired kind
+		if int32(p.State)&int32(kind) > 0 {
 			parents = append(parents, p)
 		}
 	}
 	return parents
 }
 
-func (lg *LvmGraph) GetChildren(node *LvmNode, state LvmNodeCategory) []*LvmNode {
+func (lg *LvmGraph) GetChildren(node *LvmNode, kind model.LvmKind) []*LvmNode {
 	children := []*LvmNode{}
 	for _, c := range node.children {
-		// Bitmasking to check if children nodes is of the desired category
-		if int32(c.State)&int32(state) > 0 {
+		// Bitmasking to check if children nodes is of the desired kind
+		if int32(c.State)&int32(kind) > 0 {
 			children = append(children, c)
 		}
 	}
