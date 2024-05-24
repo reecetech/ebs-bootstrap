@@ -106,7 +106,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           generate_release_notes: true
           files: |
-            */ebs-bootstrap-linux-*
+            ebs-bootstrap-linux-*
 
       - id: push-short-tag
         name: Create release short tag 🏷
