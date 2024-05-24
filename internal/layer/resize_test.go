@@ -24,14 +24,13 @@ func TestResizeDeviceLayerModify(t *testing.T) {
 		ExpectedError      error
 	}{
 		{
-			Name: "Resize Not Required: File System Size Within Threshold",
+			Name: "Resize Not Required: File System Size Within FileSystemResizeThreshold",
 			Config: &config.Config{
 				Devices: map[string]config.Device{
 					"/dev/xvdf": {
 						Fs: model.Ext4,
 						Options: config.Options{
-							ResizeFs:        true,
-							ResizeThreshold: 90,
+							Resize: true,
 						},
 					},
 				},
@@ -44,8 +43,8 @@ func TestResizeDeviceLayerModify(t *testing.T) {
 			},
 			BlockDeviceMetrics: map[string]*model.BlockDeviceMetrics{
 				"/dev/xvdf": {
-					FileSystemSize:  95,
-					BlockDeviceSize: 100,
+					FileSystemSize:  999990,
+					BlockDeviceSize: 1000000,
 				},
 			},
 			CmpOption:     cmp.AllowUnexported(),
@@ -53,14 +52,13 @@ func TestResizeDeviceLayerModify(t *testing.T) {
 			ExpectedError: nil,
 		},
 		{
-			Name: "Resize Block Device + Resize Threshold=90% + Target=Device",
+			Name: "Resize Block Device",
 			Config: &config.Config{
 				Devices: map[string]config.Device{
 					"/dev/xvdf": {
 						Fs: model.Ext4,
 						Options: config.Options{
-							ResizeFs:        true,
-							ResizeThreshold: 90,
+							Resize: true,
 						},
 					},
 				},
@@ -73,8 +71,8 @@ func TestResizeDeviceLayerModify(t *testing.T) {
 			},
 			BlockDeviceMetrics: map[string]*model.BlockDeviceMetrics{
 				"/dev/xvdf": {
-					FileSystemSize:  80,
-					BlockDeviceSize: 100,
+					FileSystemSize:  999989,
+					BlockDeviceSize: 1000000,
 				},
 			},
 			CmpOption: cmp.AllowUnexported(
@@ -86,16 +84,18 @@ func TestResizeDeviceLayerModify(t *testing.T) {
 			},
 			ExpectedError: nil,
 		},
+		// These devices must be mounted prior to a resize operation.
+		// The target of the resize opeartion would be the mountpoint, rather
+		// than the device itself. XFS is a file system produces this behaviour
 		{
-			Name: "Resize Block Device + Resize Threshold=90% + Target=Mount Point",
+			Name: "Resize Block Device: Must be Mounted",
 			Config: &config.Config{
 				Devices: map[string]config.Device{
 					"/dev/xvdf": {
 						Fs:         model.Xfs,
 						MountPoint: "/mnt/foo",
 						Options: config.Options{
-							ResizeFs:        true,
-							ResizeThreshold: 90,
+							Resize: true,
 						},
 					},
 				},
@@ -109,8 +109,8 @@ func TestResizeDeviceLayerModify(t *testing.T) {
 			},
 			BlockDeviceMetrics: map[string]*model.BlockDeviceMetrics{
 				"/dev/xvdf": {
-					FileSystemSize:  80,
-					BlockDeviceSize: 100,
+					FileSystemSize:  999989,
+					BlockDeviceSize: 1000000,
 				},
 			},
 			CmpOption: cmp.AllowUnexported(
@@ -123,14 +123,13 @@ func TestResizeDeviceLayerModify(t *testing.T) {
 			ExpectedError: nil,
 		},
 		{
-			Name: "Resize Block Device (With Mount Point) + But No Mount Point Provided",
+			Name: "Resize Block Device: Must be Mounted But No Mount Point Provided",
 			Config: &config.Config{
 				Devices: map[string]config.Device{
 					"/dev/xvdf": {
 						Fs: model.Xfs,
 						Options: config.Options{
-							ResizeFs:        true,
-							ResizeThreshold: 90,
+							Resize: true,
 						},
 					},
 				},
@@ -143,47 +142,13 @@ func TestResizeDeviceLayerModify(t *testing.T) {
 			},
 			BlockDeviceMetrics: map[string]*model.BlockDeviceMetrics{
 				"/dev/xvdf": {
-					FileSystemSize:  80,
-					BlockDeviceSize: 100,
+					FileSystemSize:  999989,
+					BlockDeviceSize: 1000000,
 				},
 			},
 			CmpOption:     cmp.AllowUnexported(),
 			ExpectedOuput: nil,
 			ExpectedError: fmt.Errorf("🔴 /dev/xvdf: To resize the xfs file system, device must be mounted"),
-		},
-		{
-			Name: "Resize Block Device + Resize Threshold=0% (Always Resize) + Target=Device",
-			Config: &config.Config{
-				Devices: map[string]config.Device{
-					"/dev/xvdf": {
-						Fs: model.Ext4,
-						Options: config.Options{
-							ResizeFs:        true,
-							ResizeThreshold: 0,
-						},
-					},
-				},
-			},
-			Devices: map[string]*model.BlockDevice{
-				"/dev/xvdf": {
-					Name:       "/dev/xvdf",
-					FileSystem: model.Ext4,
-				},
-			},
-			BlockDeviceMetrics: map[string]*model.BlockDeviceMetrics{
-				"/dev/xvdf": {
-					FileSystemSize:  100,
-					BlockDeviceSize: 100,
-				},
-			},
-			CmpOption: cmp.AllowUnexported(
-				action.ResizeDeviceAction{},
-				service.Ext4Service{},
-			),
-			ExpectedOuput: []action.Action{
-				action.NewResizeDeviceAction("/dev/xvdf", "/dev/xvdf", service.NewExt4Service(nil)).SetMode(config.DefaultMode),
-			},
-			ExpectedError: nil,
 		},
 		{
 			Name: "Skip + Resize Disabled",
@@ -192,7 +157,7 @@ func TestResizeDeviceLayerModify(t *testing.T) {
 					"/dev/xvdf": {
 						Fs: model.Ext4,
 						Options: config.Options{
-							ResizeFs: false,
+							Resize: false,
 						},
 					},
 				},
@@ -205,8 +170,8 @@ func TestResizeDeviceLayerModify(t *testing.T) {
 			},
 			BlockDeviceMetrics: map[string]*model.BlockDeviceMetrics{
 				"/dev/xvdf": {
-					FileSystemSize:  80,
-					BlockDeviceSize: 100,
+					FileSystemSize:  999989,
+					BlockDeviceSize: 1000000,
 				},
 			},
 			CmpOption:     cmp.AllowUnexported(),
@@ -241,8 +206,7 @@ func TestResizeDeviceLayerValidate(t *testing.T) {
 					"/dev/xvdf": {
 						Fs: model.Ext4,
 						Options: config.Options{
-							ResizeFs:        true,
-							ResizeThreshold: 90,
+							Resize: true,
 						},
 					},
 				},
@@ -255,35 +219,8 @@ func TestResizeDeviceLayerValidate(t *testing.T) {
 			},
 			BlockDeviceMetrics: map[string]*model.BlockDeviceMetrics{
 				"/dev/xvdf": {
-					FileSystemSize:  95,
-					BlockDeviceSize: 100,
-				},
-			},
-			ExpectedError: nil,
-		},
-		{
-			Name: "Skip + Resize Threshold=0%",
-			Config: &config.Config{
-				Devices: map[string]config.Device{
-					"/dev/xvdf": {
-						Fs: model.Ext4,
-						Options: config.Options{
-							ResizeFs:        true,
-							ResizeThreshold: 0,
-						},
-					},
-				},
-			},
-			Devices: map[string]*model.BlockDevice{
-				"/dev/xvdf": {
-					Name:       "/dev/xvdf",
-					FileSystem: model.Ext4,
-				},
-			},
-			BlockDeviceMetrics: map[string]*model.BlockDeviceMetrics{
-				"/dev/xvdf": {
-					FileSystemSize:  80,
-					BlockDeviceSize: 100,
+					FileSystemSize:  999990,
+					BlockDeviceSize: 1000000,
 				},
 			},
 			ExpectedError: nil,
@@ -295,7 +232,7 @@ func TestResizeDeviceLayerValidate(t *testing.T) {
 					"/dev/xvdf": {
 						Fs: model.Ext4,
 						Options: config.Options{
-							ResizeFs: false,
+							Resize: false,
 						},
 					},
 				},
@@ -308,8 +245,8 @@ func TestResizeDeviceLayerValidate(t *testing.T) {
 			},
 			BlockDeviceMetrics: map[string]*model.BlockDeviceMetrics{
 				"/dev/xvdf": {
-					FileSystemSize:  80,
-					BlockDeviceSize: 100,
+					FileSystemSize:  999989,
+					BlockDeviceSize: 1000000,
 				},
 			},
 			ExpectedError: nil,
@@ -321,8 +258,7 @@ func TestResizeDeviceLayerValidate(t *testing.T) {
 					"/dev/xvdf": {
 						Fs: model.Ext4,
 						Options: config.Options{
-							ResizeFs:        true,
-							ResizeThreshold: 90,
+							Resize: true,
 						},
 					},
 				},
@@ -335,11 +271,11 @@ func TestResizeDeviceLayerValidate(t *testing.T) {
 			},
 			BlockDeviceMetrics: map[string]*model.BlockDeviceMetrics{
 				"/dev/xvdf": {
-					FileSystemSize:  80,
-					BlockDeviceSize: 100,
+					FileSystemSize:  999989,
+					BlockDeviceSize: 1000000,
 				},
 			},
-			ExpectedError: fmt.Errorf("🔴 /dev/xvdf: Failed to resize file system. File System=80 Block Device=100 (bytes)"),
+			ExpectedError: fmt.Errorf("🔴 /dev/xvdf: Failed to resize file system. File System=999989 Block Device=1000000 (bytes)"),
 		},
 	}
 	for _, subtest := range subtests {

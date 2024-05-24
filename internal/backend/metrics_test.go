@@ -51,6 +51,42 @@ func TestGetBlockDeviceMetrics(t *testing.T) {
 	}
 }
 
+func TestLinuxDeviceMetricsBackendShouldResize(t *testing.T) {
+	subtests := []struct {
+		Name               string
+		BlockDeviceMetrics *model.BlockDeviceMetrics
+		ExpectedOutput     bool
+	}{
+		// FileSystemThreshold = 99.999%
+		// 999989 / 1000000 → 99.9989% < 99.999% → true
+		{
+			Name: "Should Resize",
+			BlockDeviceMetrics: &model.BlockDeviceMetrics{
+				FileSystemSize:  999989,
+				BlockDeviceSize: 1000000,
+			},
+			ExpectedOutput: true,
+		},
+		// FileSystemThreshold = 99.999%
+		// 999990 / 100000 → 99.999% < 99.999% → false
+		{
+			Name: "Should Not Resize",
+			BlockDeviceMetrics: &model.BlockDeviceMetrics{
+				FileSystemSize:  999990,
+				BlockDeviceSize: 1000000,
+			},
+			ExpectedOutput: false,
+		},
+	}
+	for _, subtest := range subtests {
+		t.Run(subtest.Name, func(t *testing.T) {
+			dmb := NewMockLinuxDeviceMetricsBackend(nil)
+			shouldResize := dmb.ShouldResize(subtest.BlockDeviceMetrics)
+			utils.CheckOutput("dmb.ShouldResize()", t, subtest.ExpectedOutput, shouldResize)
+		})
+	}
+}
+
 func TestLinuxDeviceMetricsBackendFrom(t *testing.T) {
 	fssf := service.NewLinuxFileSystemServiceFactory(nil)
 

@@ -46,7 +46,6 @@ func main() {
 	validators := []config.Validator{
 		config.NewFileSystemValidator(),
 		config.NewModeValidator(),
-		config.NewResizeThresholdValidator(),
 		config.NewMountPointValidator(),
 		config.NewMountOptionsValidator(),
 		config.NewOwnerValidator(uos),

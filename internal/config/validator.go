@@ -163,31 +163,6 @@ func (ov *OwnerValidator) Validate(c *Config) error {
 	return nil
 }
 
-type ResizeThresholdValidator struct{}
-
-func NewResizeThresholdValidator() *ResizeThresholdValidator {
-	return &ResizeThresholdValidator{}
-}
-
-func (rtv *ResizeThresholdValidator) Validate(c *Config) error {
-	if !rtv.isValid(c.Defaults.ResizeThreshold) {
-		return fmt.Errorf("🔴 '%g' (default) must be a floating point between 0 and 100 (inclusive)", c.Defaults.ResizeThreshold)
-	}
-	if !rtv.isValid(c.overrides.ResizeThreshold) {
-		return fmt.Errorf("🔴 '%g' (-resize-threshold) must be a floating point between 0 and 100 (inclusive)", c.overrides.ResizeThreshold)
-	}
-	for name, device := range c.Devices {
-		if !rtv.isValid(device.ResizeThreshold) {
-			return fmt.Errorf("🔴 %s: '%g' must be a floating point between 0 and 100 (inclusive)", name, device.ResizeThreshold)
-		}
-	}
-	return nil
-}
-
-func (rtv *ResizeThresholdValidator) isValid(rt float64) bool {
-	return rt >= 0 && rt <= 100
-}
-
 type LvmConsumptionValidator struct{}
 
 func NewLvmConsumptionValidator() *LvmConsumptionValidator {
@@ -209,6 +184,6 @@ func (lcv *LvmConsumptionValidator) Validate(c *Config) error {
 	return nil
 }
 
-func (lcv *LvmConsumptionValidator) isValid(lc int) bool {
-	return lc >= 0 && lc <= 100
+func (lcv *LvmConsumptionValidator) isValid(lc uint64) bool {
+	return lc <= 100
 }

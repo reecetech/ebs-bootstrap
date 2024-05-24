@@ -31,7 +31,7 @@ func (fdl *ResizeDeviceLayer) From(c *config.Config) error {
 func (fdl *ResizeDeviceLayer) Modify(c *config.Config) ([]action.Action, error) {
 	actions := make([]action.Action, 0)
 	for name := range c.Devices {
-		if !c.GetResizeFs(name) {
+		if !c.GetResize(name) {
 			continue
 		}
 
@@ -44,36 +44,30 @@ func (fdl *ResizeDeviceLayer) Modify(c *config.Config) ([]action.Action, error) 
 			return nil, err
 		}
 
-		mode := c.GetMode(name)
-		rt := c.GetResizeThreshold(name)
-		// If the resize threshold is set to 0, always attempt to resize the block device.
-		// For the currently supported file systems xfs and ext4, the commands to
-		// resize the block device are idempotent
-		if rt == 0 || metrics.ShouldResize(rt) {
-			a, err := fdl.deviceBackend.Resize(bd)
-			if err != nil {
-				return nil, err
-			}
-			a = a.SetMode(mode)
-			actions = append(actions, a)
+		if !fdl.deviceMetricsBackend.ShouldResize(metrics) {
+			continue
 		}
+		mode := c.GetMode(name)
+		a, err := fdl.deviceBackend.Resize(bd)
+		if err != nil {
+			return nil, err
+		}
+		a = a.SetMode(mode)
+		actions = append(actions, a)
 	}
 	return actions, nil
 }
 
 func (fdl *ResizeDeviceLayer) Validate(c *config.Config) error {
 	for name := range c.Devices {
-		if !c.GetResizeFs(name) {
+		if !c.GetResize(name) {
 			continue
 		}
 		metrics, err := fdl.deviceMetricsBackend.GetBlockDeviceMetrics(name)
 		if err != nil {
 			return err
 		}
-		rt := c.GetResizeThreshold(name)
-		// If the resize threshold is 0, then the device would always be resized
-		// Therefore, lets ignore that case from our validation checks
-		if rt > 0 && metrics.ShouldResize(rt) {
+		if fdl.deviceMetricsBackend.ShouldResize(metrics) {
 			return fmt.Errorf("🔴 %s: Failed to resize file system. File System=%d Block Device=%d (bytes)", name, metrics.FileSystemSize, metrics.BlockDeviceSize)
 		}
 	}
@@ -86,7 +80,7 @@ func (fdl *ResizeDeviceLayer) Warning() string {
 
 func (fdl *ResizeDeviceLayer) ShouldProcess(c *config.Config) bool {
 	for name := range c.Devices {
-		if c.GetResizeFs(name) {
+		if c.GetResize(name) {
 			return true
 		}
 	}
