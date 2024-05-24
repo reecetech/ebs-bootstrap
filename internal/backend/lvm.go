@@ -136,7 +136,7 @@ func (lb *LinuxLvmBackend) SearchVolumeGroup(physicalVolume string) (*model.Volu
 	}
 	vgn := lb.lvmGraph.GetChildren(pvn, model.VolumeGroupKind)
 	if len(vgn) == 0 {
-		return nil, fmt.Errorf("🔴 %s: Physical volume has no volume group", physicalVolume)
+		return nil, nil
 	}
 	return &model.VolumeGroup{
 		Name:           vgn[0].Name,
