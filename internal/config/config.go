@@ -22,7 +22,7 @@ type Flag struct {
 	Remount        bool
 	MountOptions   string
 	Resize         bool
-	LvmConsumption int
+	LvmConsumption uint64
 }
 
 type Device struct {
@@ -41,7 +41,7 @@ type Options struct {
 	Remount        bool               `yaml:"remount"`
 	MountOptions   model.MountOptions `yaml:"mountOptions"`
 	Resize         bool               `yaml:"resize"`
-	LvmConsumption int                `yaml:"lvmConsumption"`
+	LvmConsumption uint64             `yaml:"lvmConsumption"`
 }
 
 // We don't export "overrides" as this is an attribute that is used
@@ -99,7 +99,7 @@ func parseFlags(program string, args []string) (*Flag, error) {
 	flags.BoolVar(&f.Remount, "remount", false, "override for remount")
 	flags.StringVar(&f.MountOptions, "mount-options", "", "override for mount options")
 	flags.BoolVar(&f.Resize, "resize", false, "override for resize filesystem")
-	flags.IntVar(&f.LvmConsumption, "lvm-consumption", 0, "override for lvm consumption")
+	flags.Uint64Var(&f.LvmConsumption, "lvm-consumption", 0, "override for lvm consumption")
 
 	// Actually parse the flag
 	err := flags.Parse(args)
@@ -169,7 +169,7 @@ func (c *Config) GetResize(name string) bool {
 	return c.overrides.Resize || c.Defaults.Resize || cd.Resize
 }
 
-func (c *Config) GetLvmConsumption(name string) int {
+func (c *Config) GetLvmConsumption(name string) uint64 {
 	cd, found := c.Devices[name]
 	if !found {
 		return DefaultLvmConsumption

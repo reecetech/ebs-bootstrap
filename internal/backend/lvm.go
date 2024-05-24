@@ -51,7 +51,7 @@ const (
 type LvmBackend interface {
 	CreatePhysicalVolume(name string) action.Action
 	CreateVolumeGroup(name string, physicalVolume string) action.Action
-	CreateLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) action.Action
+	CreateLogicalVolume(name string, volumeGroup string, volumeGroupPercent uint64) action.Action
 	ActivateLogicalVolume(name string, volumeGroup string) action.Action
 	GetVolumeGroups(name string) []*model.VolumeGroup
 	GetLogicalVolume(name string, volumeGroup string) (*model.LogicalVolume, error)
@@ -59,8 +59,8 @@ type LvmBackend interface {
 	SearchVolumeGroup(physicalVolume string) (*model.VolumeGroup, error)
 	ShouldResizePhysicalVolume(name string) (bool, error)
 	ResizePhysicalVolume(name string) action.Action
-	ShouldResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) (bool, error)
-	ResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) action.Action
+	ShouldResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent uint64) (bool, error)
+	ResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent uint64) action.Action
 	From(config *config.Config) error
 }
 
@@ -154,7 +154,7 @@ func (lb *LinuxLvmBackend) CreateVolumeGroup(name string, physicalVolume string)
 	return action.NewCreateVolumeGroupAction(name, physicalVolume, lb.lvmService)
 }
 
-func (lb *LinuxLvmBackend) CreateLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) action.Action {
+func (lb *LinuxLvmBackend) CreateLogicalVolume(name string, volumeGroup string, volumeGroupPercent uint64) action.Action {
 	return action.NewCreateLogicalVolumeAction(name, volumeGroupPercent, volumeGroup, lb.lvmService)
 }
 
@@ -178,7 +178,7 @@ func (lb *LinuxLvmBackend) ResizePhysicalVolume(name string) action.Action {
 	return action.NewResizePhysicalVolumeAction(name, lb.lvmService)
 }
 
-func (lb *LinuxLvmBackend) ShouldResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) (bool, error) {
+func (lb *LinuxLvmBackend) ShouldResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent uint64) (bool, error) {
 	left := float64(volumeGroupPercent) - LogicalVolumeResizeTolerance
 	right := float64(volumeGroupPercent) + LogicalVolumeResizeTolerance
 	lvn, err := lb.lvmGraph.GetLogicalVolume(name, volumeGroup)
@@ -196,7 +196,7 @@ func (lb *LinuxLvmBackend) ShouldResizeLogicalVolume(name string, volumeGroup st
 	return usedPerecent < left, nil
 }
 
-func (lb *LinuxLvmBackend) ResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) action.Action {
+func (lb *LinuxLvmBackend) ResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent uint64) action.Action {
 	return action.NewResizeLogicalVolumeAction(name, volumeGroupPercent, volumeGroup, lb.lvmService)
 }
 

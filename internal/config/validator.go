@@ -184,6 +184,6 @@ func (lcv *LvmConsumptionValidator) Validate(c *Config) error {
 	return nil
 }
 
-func (lcv *LvmConsumptionValidator) isValid(lc int) bool {
-	return lc >= 0 && lc <= 100
+func (lcv *LvmConsumptionValidator) isValid(lc uint64) bool {
+	return lc <= 100
 }

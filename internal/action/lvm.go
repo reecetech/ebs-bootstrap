@@ -89,13 +89,13 @@ func (a *CreateVolumeGroupAction) Success() string {
 
 type CreateLogicalVolumeAction struct {
 	name               string
-	volumeGroupPercent int
+	volumeGroupPercent uint64
 	volumeGroup        string
 	mode               model.Mode
 	lvmService         service.LvmService
 }
 
-func NewCreateLogicalVolumeAction(name string, volumeGroupPercent int, volumeGroup string, ls service.LvmService) *CreateLogicalVolumeAction {
+func NewCreateLogicalVolumeAction(name string, volumeGroupPercent uint64, volumeGroup string, ls service.LvmService) *CreateLogicalVolumeAction {
 	return &CreateLogicalVolumeAction{
 		name:               name,
 		volumeGroupPercent: volumeGroupPercent,
@@ -212,13 +212,13 @@ func (a *ResizePhysicalVolumeAction) Success() string {
 
 type ResizeLogicalVolumeAction struct {
 	name               string
-	volumeGroupPercent int
+	volumeGroupPercent uint64
 	volumeGroup        string
 	mode               model.Mode
 	lvmService         service.LvmService
 }
 
-func NewResizeLogicalVolumeAction(name string, volumeGroupPercent int, volumeGroup string, ls service.LvmService) *ResizeLogicalVolumeAction {
+func NewResizeLogicalVolumeAction(name string, volumeGroupPercent uint64, volumeGroup string, ls service.LvmService) *ResizeLogicalVolumeAction {
 	return &ResizeLogicalVolumeAction{
 		name:               name,
 		volumeGroupPercent: volumeGroupPercent,
