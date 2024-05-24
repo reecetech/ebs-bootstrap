@@ -47,7 +47,11 @@ func (rpvl *ResizePhysicalVolumeLayer) Modify(c *config.Config) ([]action.Action
 		if !c.GetResizeFs(name) {
 			continue
 		}
-		if !rpvl.lvmBackend.ShouldResizePhysicalVolume(name, ResizeThreshold) {
+		shouldResize, err := rpvl.lvmBackend.ShouldResizePhysicalVolume(name, ResizeThreshold)
+		if err != nil {
+			return nil, err
+		}
+		if !shouldResize {
 			continue
 		}
 		mode := c.GetMode(name)
@@ -65,8 +69,12 @@ func (rpvl *ResizePhysicalVolumeLayer) Validate(c *config.Config) error {
 		if !c.GetResizeFs(name) {
 			continue
 		}
-		if rpvl.lvmBackend.ShouldResizePhysicalVolume(name, ResizeThreshold) {
-			return fmt.Errorf("🔴 %s: Failed to resize validation checks. Physical volume %s still needs to be resized", name, name)
+		shouldResize, err := rpvl.lvmBackend.ShouldResizePhysicalVolume(name, ResizeThreshold)
+		if err != nil {
+			return err
+		}
+		if shouldResize {
+			return fmt.Errorf("🔴 %s: Failed resize validation checks. Physical volume %s still needs to be resized", name, name)
 		}
 	}
 	return nil

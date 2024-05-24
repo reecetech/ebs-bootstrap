@@ -44,10 +44,9 @@ func (dmb *LinuxDeviceMetricsBackend) GetBlockDeviceMetrics(name string) (*model
 }
 
 func (dmb *LinuxDeviceMetricsBackend) From(config *config.Config) error {
-	// Clear representation of metrics
 	dmb.blockDeviceMetrics = nil
-
 	blockDeviceMetrics := map[string]*model.BlockDeviceMetrics{}
+
 	for name := range config.Devices {
 		bd, err := dmb.deviceService.GetBlockDevice(name)
 		if err != nil {

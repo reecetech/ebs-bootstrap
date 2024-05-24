@@ -16,9 +16,10 @@ type LvmService interface {
 	GetLogicalVolumes() ([]*model.LogicalVolume, error)
 	CreatePhysicalVolume(name string) error
 	CreateVolumeGroup(name string, physicalVolume string) error
-	CreateLogicalVolume(name string, volumeGroup string, freeSpacePercent int) error
+	CreateLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) error
 	ActivateLogicalVolume(name string, volumeGroup string) error
 	ResizePhysicalVolume(name string) error
+	ResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) error
 }
 
 type LinuxLvmService struct {
@@ -132,6 +133,7 @@ func (ls *LinuxLvmService) GetVolumeGroups() ([]*model.VolumeGroup, error) {
 		vgs[i] = &model.VolumeGroup{
 			Name:           vg.Name,
 			PhysicalVolume: vg.PhysicalVolume,
+			State:          model.VolumeGroupInactive,
 			Size:           size,
 		}
 	}
@@ -151,19 +153,23 @@ func (ls *LinuxLvmService) GetLogicalVolumes() ([]*model.LogicalVolume, error) {
 	}
 	lvs := make([]*model.LogicalVolume, len(lr.Report[0].LogicalVolume))
 	for i, lv := range lr.Report[0].LogicalVolume {
-		var state model.LogicalVolumeState
+		// Get Logical Volume State
+		var state model.LvmState
 		switch lv.Attributes[4] {
 		case 'a':
-			state = model.Active
+			state = model.LogicalVolumeActive
 		case '-':
-			state = model.Inactive
+			state = model.LogicalVolumeInactive
 		default:
-			state = model.Unsupported
+			state = model.LogicalVolumeUnsupported
 		}
+
+		// Get Logical Volume Size
 		size, err := strconv.ParseUint(lv.Size, 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("🔴 Failed to cast logical volume size to unsigned 64-bit integer")
 		}
+
 		lvs[i] = &model.LogicalVolume{
 			Name:        lv.Name,
 			VolumeGroup: lv.VolumeGroup,
@@ -186,9 +192,9 @@ func (ls *LinuxLvmService) CreateVolumeGroup(name string, physicalVolume string)
 	return err
 }
 
-func (ls *LinuxLvmService) CreateLogicalVolume(name string, volumeGroup string, freeSpacePercent int) error {
+func (ls *LinuxLvmService) CreateLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) error {
 	r := ls.runnerFactory.Select(utils.LvCreate)
-	_, err := r.Command("-l", fmt.Sprintf("%d%%FREE", freeSpacePercent), "-n", name, volumeGroup)
+	_, err := r.Command("-l", fmt.Sprintf("%d%%VG", volumeGroupPercent), "-n", name, volumeGroup)
 	return err
 }
 
@@ -201,5 +207,11 @@ func (ls *LinuxLvmService) ActivateLogicalVolume(name string, volumeGroup string
 func (ls *LinuxLvmService) ResizePhysicalVolume(name string) error {
 	r := ls.runnerFactory.Select(utils.PvResize)
 	_, err := r.Command(name)
+	return err
+}
+
+func (ls *LinuxLvmService) ResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) error {
+	r := ls.runnerFactory.Select(utils.LvExtend)
+	_, err := r.Command("-l", fmt.Sprintf("%d%%VG", volumeGroupPercent), fmt.Sprintf("%s/%s", volumeGroup, name))
 	return err
 }

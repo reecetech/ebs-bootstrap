@@ -13,14 +13,16 @@ import (
 type LvmBackend interface {
 	CreatePhysicalVolume(name string) action.Action
 	CreateVolumeGroup(name string, physicalVolume string) action.Action
-	CreateLogicalVolume(name string, volumeGroup string, freeSpacePercent int) action.Action
+	CreateLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) action.Action
 	ActivateLogicalVolume(name string, volumeGroup string) action.Action
 	GetVolumeGroups(name string) []*model.VolumeGroup
 	GetLogicalVolume(name string, volumeGroup string) (*model.LogicalVolume, error)
-	SearchLogicalVolumes(volumeGroup string) []*model.LogicalVolume
-	SearchVolumeGroup(physicalVolume string) *model.VolumeGroup
-	ShouldResizePhysicalVolume(name string, threshold float64) bool
+	SearchLogicalVolumes(volumeGroup string) ([]*model.LogicalVolume, error)
+	SearchVolumeGroup(physicalVolume string) (*model.VolumeGroup, error)
+	ShouldResizePhysicalVolume(name string, threshold float64) (bool, error)
 	ResizePhysicalVolume(name string) action.Action
+	ShouldResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent int, tolerance float64) (bool, error)
+	ResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) action.Action
 	From(config *config.Config) error
 }
 
@@ -38,68 +40,72 @@ func NewLinuxLvmBackend(ls service.LvmService) *LinuxLvmBackend {
 
 func (lb *LinuxLvmBackend) GetVolumeGroups(name string) []*model.VolumeGroup {
 	vgs := []*model.VolumeGroup{}
-	node, err := lb.lvmGraph.GetVolumeGroup(name)
+	vgn, err := lb.lvmGraph.GetVolumeGroup(name)
 	if err != nil {
 		return vgs
 	}
-	pvn := lb.lvmGraph.GetParents(node, datastructures.PhysicalVolume)
+	pvn := lb.lvmGraph.GetParents(vgn, model.PhysicalVolumeKind)
 	for _, pv := range pvn {
 		vgs = append(vgs, &model.VolumeGroup{
-			Name:           node.Name,
+			Name:           vgn.Name,
 			PhysicalVolume: pv.Name,
+			State:          vgn.State,
+			Size:           vgn.Size,
 		})
 	}
 	return vgs
 }
 
 func (lb *LinuxLvmBackend) GetLogicalVolume(name string, volumeGroup string) (*model.LogicalVolume, error) {
-	node, err := lb.lvmGraph.GetLogicalVolume(name, volumeGroup)
+	lvn, err := lb.lvmGraph.GetLogicalVolume(name, volumeGroup)
 	if err != nil {
 		return nil, err
 	}
-	vgs := lb.lvmGraph.GetParents(node, datastructures.VolumeGroup)
+	vgs := lb.lvmGraph.GetParents(lvn, model.VolumeGroupKind)
 	if len(vgs) == 0 {
-		return nil, fmt.Errorf("🔴 %s: Logical volume has no volume group", node.Name)
+		return nil, fmt.Errorf("🔴 %s: Logical volume has no volume group", lvn.Name)
 	}
 	return &model.LogicalVolume{
-		Name:        node.Name,
+		Name:        lvn.Name,
 		VolumeGroup: vgs[0].Name,
-		State:       model.LogicalVolumeState(node.State),
+		State:       lvn.State,
+		Size:        lvn.Size,
 	}, nil
 }
 
-func (lb *LinuxLvmBackend) SearchLogicalVolumes(volumeGroup string) []*model.LogicalVolume {
+func (lb *LinuxLvmBackend) SearchLogicalVolumes(volumeGroup string) ([]*model.LogicalVolume, error) {
 	lvs := []*model.LogicalVolume{}
-	node, err := lb.lvmGraph.GetVolumeGroup(volumeGroup)
+	vgn, err := lb.lvmGraph.GetVolumeGroup(volumeGroup)
 	if err != nil {
-		return lvs
+		return nil, err
 	}
-	lvn := lb.lvmGraph.GetChildren(node, datastructures.LogicalVolume)
-	for _, lv := range lvn {
+	lvns := lb.lvmGraph.GetChildren(vgn, model.LogicalVolumeKind)
+	for _, lvn := range lvns {
 		lvs = append(lvs, &model.LogicalVolume{
-			Name:        lv.Name,
-			VolumeGroup: node.Name,
-			State:       model.LogicalVolumeState(lv.State),
-			Size:        lv.Size,
+			Name:        lvn.Name,
+			VolumeGroup: vgn.Name,
+			State:       lvn.State,
+			Size:        lvn.Size,
 		})
 	}
-	return lvs
+	return lvs, nil
 }
 
-func (lb *LinuxLvmBackend) SearchVolumeGroup(physicalVolume string) *model.VolumeGroup {
-	node, err := lb.lvmGraph.GetPhysicalVolume(physicalVolume)
+func (lb *LinuxLvmBackend) SearchVolumeGroup(physicalVolume string) (*model.VolumeGroup, error) {
+	pvn, err := lb.lvmGraph.GetPhysicalVolume(physicalVolume)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	vgn := lb.lvmGraph.GetChildren(node, datastructures.VolumeGroup)
+	vgn := lb.lvmGraph.GetChildren(pvn, model.VolumeGroupKind)
 	if len(vgn) == 0 {
-		return nil
+		return nil, fmt.Errorf("🔴 %s: Physical volume has no volume group", physicalVolume)
 	}
 	return &model.VolumeGroup{
 		Name:           vgn[0].Name,
-		PhysicalVolume: node.Name,
+		PhysicalVolume: pvn.Name,
+		State:          vgn[0].State,
 		Size:           vgn[0].Size,
-	}
+	}, nil
 }
 
 func (lb *LinuxLvmBackend) CreatePhysicalVolume(name string) action.Action {
@@ -110,58 +116,100 @@ func (lb *LinuxLvmBackend) CreateVolumeGroup(name string, physicalVolume string)
 	return action.NewCreateVolumeGroupAction(name, physicalVolume, lb.lvmService)
 }
 
-func (lb *LinuxLvmBackend) CreateLogicalVolume(name string, volumeGroup string, freeSpacePercent int) action.Action {
-	return action.NewCreateLogicalVolumeAction(name, freeSpacePercent, volumeGroup, lb.lvmService)
+func (lb *LinuxLvmBackend) CreateLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) action.Action {
+	return action.NewCreateLogicalVolumeAction(name, volumeGroupPercent, volumeGroup, lb.lvmService)
 }
 
 func (lb *LinuxLvmBackend) ActivateLogicalVolume(name string, volumeGroup string) action.Action {
 	return action.NewActivateLogicalVolumeAction(name, volumeGroup, lb.lvmService)
 }
 
-func (lb *LinuxLvmBackend) ShouldResizePhysicalVolume(name string, threshold float64) bool {
-	node, err := lb.lvmGraph.GetPhysicalVolume(name)
+func (lb *LinuxLvmBackend) ShouldResizePhysicalVolume(name string, threshold float64) (bool, error) {
+	pvn, err := lb.lvmGraph.GetPhysicalVolume(name)
 	if err != nil {
-		return false
+		return false, nil
 	}
-	dvn := lb.lvmGraph.GetParents(node, datastructures.Device)
-	if len(dvn) == 0 {
-		return false
+	dn := lb.lvmGraph.GetParents(pvn, model.DeviceKind)
+	if len(dn) == 0 {
+		return false, nil
 	}
-	return (float64(node.Size) / float64(dvn[0].Size) * 100) < threshold
+	return (float64(pvn.Size) / float64(dn[0].Size) * 100) < threshold, nil
 }
 
 func (lb *LinuxLvmBackend) ResizePhysicalVolume(name string) action.Action {
 	return action.NewResizePhysicalVolumeAction(name, lb.lvmService)
 }
 
+func (lb *LinuxLvmBackend) ShouldResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent int, tolerance float64) (bool, error) {
+	left := float64(volumeGroupPercent) - tolerance
+	right := float64(volumeGroupPercent) + tolerance
+	lvn, err := lb.lvmGraph.GetLogicalVolume(name, volumeGroup)
+	if err != nil {
+		return false, err
+	}
+	vgn := lb.lvmGraph.GetParents(lvn, model.VolumeGroupKind)
+	if len(vgn) == 0 {
+		return false, fmt.Errorf("🔴 %s: Logical volume has no volume group", name)
+	}
+	usedPerecent := (float64(lvn.Size) / float64(vgn[0].Size)) * 100
+	if usedPerecent > right {
+		return false, fmt.Errorf("🔴 %s: Logical volume %s is using %.0f%% of volume group %s, which exceeds the expected usage of %d%%", volumeGroup, name, usedPerecent, volumeGroup, volumeGroupPercent)
+	}
+	return usedPerecent < left, nil
+}
+
+func (lb *LinuxLvmBackend) ResizeLogicalVolume(name string, volumeGroup string, volumeGroupPercent int) action.Action {
+	return action.NewResizeLogicalVolumeAction(name, volumeGroupPercent, volumeGroup, lb.lvmService)
+}
+
 func (db *LinuxLvmBackend) From(config *config.Config) error {
+	// We populate a temporary lvmGraph and then assign it to the backend
+	// after all objects have been successfully added. This avoids a partial
+	// state in the event of failure during one of intermediate steps.
+	db.lvmGraph = nil
+	lvmGraph := datastructures.NewLvmGraph()
+
 	ds, err := db.lvmService.GetDevices()
 	if err != nil {
 		return err
 	}
 	for _, d := range ds {
-		db.lvmGraph.AddDevice(d.Name, d.Size)
+		err := lvmGraph.AddDevice(d.Name, d.Size)
+		if err != nil {
+			return err
+		}
 	}
 	pvs, err := db.lvmService.GetPhysicalVolumes()
 	if err != nil {
 		return err
 	}
 	for _, pv := range pvs {
-		db.lvmGraph.AddPhysicalVolume(pv.Name, pv.Size)
+		err := lvmGraph.AddPhysicalVolume(pv.Name, pv.Size)
+		if err != nil {
+			return err
+		}
 	}
 	vgs, err := db.lvmService.GetVolumeGroups()
 	if err != nil {
 		return err
 	}
 	for _, vg := range vgs {
-		db.lvmGraph.AddVolumeGroup(vg.Name, vg.PhysicalVolume, vg.Size)
+		err := lvmGraph.AddVolumeGroup(vg.Name, vg.PhysicalVolume, vg.Size)
+		if err != nil {
+			return err
+		}
 	}
 	lvs, err := db.lvmService.GetLogicalVolumes()
 	if err != nil {
 		return err
 	}
 	for _, lv := range lvs {
-		db.lvmGraph.AddLogicalVolume(lv.Name, lv.VolumeGroup, datastructures.LvmNodeState(lv.State), lv.Size)
+		err := lvmGraph.AddLogicalVolume(lv.Name, lv.VolumeGroup, lv.State, lv.Size)
+		if err != nil {
+			return err
+		}
 	}
+
+	db.lvmGraph = lvmGraph
 	return nil
 }

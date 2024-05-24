@@ -25,7 +25,10 @@ func (cvgl *CreateLogicalVolumeLayer) Modify(c *config.Config) ([]action.Action,
 			continue
 		}
 
-		lvs := cvgl.lvmBackend.SearchLogicalVolumes(cd.Lvm)
+		lvs, err := cvgl.lvmBackend.SearchLogicalVolumes(cd.Lvm)
+		if err != nil {
+			return nil, err
+		}
 		if len(lvs) == 1 {
 			if lvs[0].Name == cd.Lvm {
 				continue
@@ -48,7 +51,10 @@ func (cvgl *CreateLogicalVolumeLayer) Validate(c *config.Config) error {
 		if len(cd.Lvm) == 0 {
 			continue
 		}
-		lvs := cvgl.lvmBackend.SearchLogicalVolumes(cd.Lvm)
+		lvs, err := cvgl.lvmBackend.SearchLogicalVolumes(cd.Lvm)
+		if err != nil {
+			return err
+		}
 		if len(lvs) == 1 {
 			if lvs[0].Name == cd.Lvm {
 				continue

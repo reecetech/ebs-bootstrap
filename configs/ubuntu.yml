@@ -1,5 +1,4 @@
 defaults:
-  lvmConsumption: 100
   resizeFs: true
   resizeThreshold: 99
 devices:
@@ -10,6 +9,7 @@ devices:
     user: ubuntu
     group: ubuntu
     permissions: 755
+    lvmConsumption: 100
   /dev/vdc:
     fs: xfs
     lvm: ifmx-var
@@ -17,3 +17,4 @@ devices:
     user: ubuntu
     group: ubuntu
     permissions: 755
+    lvmConsumption: 30

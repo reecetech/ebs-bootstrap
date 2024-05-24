@@ -66,6 +66,7 @@ func main() {
 		layer.NewCreateVolumeGroupLayer(lb),
 		layer.NewCreateLogicalVolumeLayer(lb),
 		layer.NewActivateLogicalVolumeLayer(lb),
+		layer.NewResizeLogicalVolumeLayer(lb),
 	}
 	checkError(le.Execute(lvmLayers))
 

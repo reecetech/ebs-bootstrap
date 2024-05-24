@@ -31,11 +31,11 @@ func (cvgl *ActivateLogicalVolumeLayer) Modify(c *config.Config) ([]action.Actio
 			return nil, err
 		}
 
-		if lv.State == model.Active {
+		if lv.State == model.LogicalVolumeActive {
 			continue
 		}
 
-		if lv.State == model.Unsupported {
+		if lv.State == model.LogicalVolumeUnsupported {
 			return nil, fmt.Errorf("🔴 %s: Can not activate a logical volume in an unsupported state", lv.Name)
 		}
 
