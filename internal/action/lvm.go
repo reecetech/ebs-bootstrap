@@ -170,3 +170,42 @@ func (a *ActivateLogicalVolumeAction) Refuse() string {
 func (a *ActivateLogicalVolumeAction) Success() string {
 	return fmt.Sprintf("Successfully activated logical volume %s in volume group %s", a.name, a.volumeGroup)
 }
+
+type ResizePhysicalVolumeAction struct {
+	name       string
+	mode       model.Mode
+	lvmService service.LvmService
+}
+
+func NewResizePhysicalVolumeAction(name string, ls service.LvmService) *ResizePhysicalVolumeAction {
+	return &ResizePhysicalVolumeAction{
+		name:       name,
+		mode:       model.Empty,
+		lvmService: ls,
+	}
+}
+
+func (a *ResizePhysicalVolumeAction) Execute() error {
+	return a.lvmService.ResizePhysicalVolume(a.name)
+}
+
+func (a *ResizePhysicalVolumeAction) GetMode() model.Mode {
+	return a.mode
+}
+
+func (a *ResizePhysicalVolumeAction) SetMode(mode model.Mode) Action {
+	a.mode = mode
+	return a
+}
+
+func (a *ResizePhysicalVolumeAction) Prompt() string {
+	return fmt.Sprintf("Would you like to resize physical volume %s", a.name)
+}
+
+func (a *ResizePhysicalVolumeAction) Refuse() string {
+	return fmt.Sprintf("Refused to resize physical volume %s", a.name)
+}
+
+func (a *ResizePhysicalVolumeAction) Success() string {
+	return fmt.Sprintf("Successfully resized physical volume %s", a.name)
+}

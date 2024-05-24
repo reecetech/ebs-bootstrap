@@ -1,5 +1,7 @@
 defaults:
   lvmConsumption: 100
+  resizeFs: true
+  resizeThreshold: 99
 devices:
   /dev/vdb:
     fs: xfs

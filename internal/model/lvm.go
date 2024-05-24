@@ -2,13 +2,20 @@ package model
 
 import "github.com/reecetech/ebs-bootstrap/internal/datastructures"
 
+type Device struct {
+	Name string
+	Size uint64
+}
+
 type PhysicalVolume struct {
 	Name string
+	Size uint64
 }
 
 type VolumeGroup struct {
 	Name           string
 	PhysicalVolume string
+	Size           uint64
 }
 
 type LogicalVolumeState int32
@@ -23,4 +30,5 @@ type LogicalVolume struct {
 	Name        string
 	VolumeGroup string
 	State       LogicalVolumeState
+	Size        uint64
 }

@@ -62,6 +62,7 @@ func main() {
 	// LVM Layers
 	lvmLayers := []layer.Layer{
 		layer.NewCreatePhysicalVolumeLayer(db, lb),
+		layer.NewResizePhysicalVolumeLayer(lb),
 		layer.NewCreateVolumeGroupLayer(lb),
 		layer.NewCreateLogicalVolumeLayer(lb),
 		layer.NewActivateLogicalVolumeLayer(lb),
