@@ -565,3 +565,40 @@ func TestMountDeviceLayerValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestMountDeviceLayerShouldProcess(t *testing.T) {
+	subtests := []struct {
+		Name           string
+		Config         *config.Config
+		ExpectedOutput bool
+	}{
+		{
+			Name: "At Least Once Device Has Mount Point Specified",
+			Config: &config.Config{
+				Devices: map[string]config.Device{
+					"/dev/xvdb": {},
+					"/dev/xvdf": {
+						MountPoint: "/mnt/foo",
+					},
+				},
+			},
+			ExpectedOutput: true,
+		},
+		{
+			Name: "No Device Has Mount Point Specified",
+			Config: &config.Config{
+				Devices: map[string]config.Device{
+					"/dev/xvdf": {},
+				},
+			},
+			ExpectedOutput: false,
+		},
+	}
+	for _, subtest := range subtests {
+		t.Run(subtest.Name, func(t *testing.T) {
+			mdl := NewMountDeviceLayer(nil, nil)
+			output := mdl.ShouldProcess(subtest.Config)
+			utils.CheckOutput("mdl.ShouldProcess()", t, subtest.ExpectedOutput, output)
+		})
+	}
+}

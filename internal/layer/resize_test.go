@@ -288,3 +288,42 @@ func TestResizeDeviceLayerValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestResizeDeviceLayerShouldProcess(t *testing.T) {
+	subtests := []struct {
+		Name           string
+		Config         *config.Config
+		ExpectedOutput bool
+	}{
+		{
+			Name: "At Least Once Device Has Resize Enabled",
+			Config: &config.Config{
+				Devices: map[string]config.Device{
+					"/dev/xvdb": {
+						Options: config.Options{
+							Resize: true,
+						},
+					},
+					"/dev/xvdf": {},
+				},
+			},
+			ExpectedOutput: true,
+		},
+		{
+			Name: "No Device Has Resize Enabled",
+			Config: &config.Config{
+				Devices: map[string]config.Device{
+					"/dev/xvdf": {},
+				},
+			},
+			ExpectedOutput: false,
+		},
+	}
+	for _, subtest := range subtests {
+		t.Run(subtest.Name, func(t *testing.T) {
+			rl := NewResizeDeviceLayer(nil, nil)
+			output := rl.ShouldProcess(subtest.Config)
+			utils.CheckOutput("rl.ShouldProcess()", t, subtest.ExpectedOutput, output)
+		})
+	}
+}

@@ -218,3 +218,54 @@ func TestChangePermissionsLayerValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestChangePermissionsLayerShouldProcess(t *testing.T) {
+	subtests := []struct {
+		Name           string
+		Config         *config.Config
+		ExpectedOutput bool
+	}{
+		{
+			Name: "At Least One Device Has a Mount Point and Permissions Declared",
+			Config: &config.Config{
+				Devices: map[string]config.Device{
+					"/dev/xvdb": {
+						MountPoint:  "/mnt/foo",
+						Permissions: model.FilePermissions(0755),
+					},
+					"/dev/xvdf": {
+						MountPoint: "/mnt/bar",
+					},
+				},
+			},
+			ExpectedOutput: true,
+		},
+		{
+			Name: "No Device Has a Mount Point and Permissions Declared",
+			Config: &config.Config{
+				Devices: map[string]config.Device{
+					"/dev/xvdf": {},
+				},
+			},
+			ExpectedOutput: false,
+		},
+		{
+			Name: "Device Has a Mount Point Declared, but not Permissions",
+			Config: &config.Config{
+				Devices: map[string]config.Device{
+					"/dev/xvdb": {
+						MountPoint: "/mnt/foo",
+					},
+				},
+			},
+			ExpectedOutput: false,
+		},
+	}
+	for _, subtest := range subtests {
+		t.Run(subtest.Name, func(t *testing.T) {
+			cpl := NewChangePermissionsLayer(nil)
+			output := cpl.ShouldProcess(subtest.Config)
+			utils.CheckOutput("cpl.ShouldProcess()", t, subtest.ExpectedOutput, output)
+		})
+	}
+}

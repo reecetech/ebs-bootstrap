@@ -15,9 +15,10 @@ const (
 )
 
 type MockLayer struct {
-	from     *utils.MockIncrementError
-	modify   *utils.MockIncrementError
-	validate *utils.MockIncrementError
+	from          *utils.MockIncrementError
+	modify        *utils.MockIncrementError
+	validate      *utils.MockIncrementError
+	shouldProcess bool
 }
 
 func (ml *MockLayer) From(c *config.Config) error {
@@ -41,7 +42,7 @@ func (ml *MockLayer) Warning() string {
 }
 
 func (ml *MockLayer) ShouldProcess(c *config.Config) bool {
-	return true
+	return ml.shouldProcess
 }
 
 func TestExponentialBackoffLayerExecutor(t *testing.T) {
@@ -110,13 +111,30 @@ func TestExponentialBackoffLayerExecutor(t *testing.T) {
 	for _, subtest := range subtests {
 		t.Run(subtest.Name, func(t *testing.T) {
 			ml := &MockLayer{
-				from:     subtest.From,
-				modify:   subtest.Modify,
-				validate: subtest.Validate,
+				from:          subtest.From,
+				modify:        subtest.Modify,
+				validate:      subtest.Validate,
+				shouldProcess: true,
 			}
 			eb := NewExponentialBackoffLayerExecutor(nil, mae, ebp)
 			err := eb.Execute([]Layer{ml})
 			utils.CheckError("eb.Execute()", t, subtest.ExpectedError, err)
 		})
 	}
+}
+
+func TestExponentialBackoffLayerExecutorShouldProcess(t *testing.T) {
+	// This MockLayer will fail if any of the From(), Modify() or Validate() methods
+	// are invoked. `shouldProcess` has been set to false so these methods would be skipped
+	// and there should be no error generated
+	ml := &MockLayer{
+		from:          utils.NewMockIncrementError("From()", utils.SuccessUntilTrigger, 1),
+		modify:        utils.NewMockIncrementError("Modidy()", utils.SuccessUntilTrigger, 1),
+		validate:      utils.NewMockIncrementError("Validate()", utils.SuccessUntilTrigger, 1),
+		shouldProcess: false,
+	}
+	debp := DefaultExponentialBackoffParameters()
+	eb := NewExponentialBackoffLayerExecutor(nil, nil, debp)
+	err := eb.Execute([]Layer{ml})
+	utils.CheckError("eb.Execute()", t, nil, err)
 }

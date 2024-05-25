@@ -349,3 +349,80 @@ func TestChangeOwnerLayerValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestChangeOwnerLayerShouldProcess(t *testing.T) {
+	subtests := []struct {
+		Name           string
+		Config         *config.Config
+		ExpectedOutput bool
+	}{
+		{
+			Name: "At Least One Device has Mount Point, User and Group Provided",
+			Config: &config.Config{
+				Devices: map[string]config.Device{
+					"/dev/xvdb": {
+						MountPoint: "/mnt/foo",
+						User:       "user-a",
+						Group:      "group-a",
+					},
+					"/dev/xvdf": {},
+				},
+			},
+			ExpectedOutput: true,
+		},
+		{
+			Name: "Device has Mount Point and User Provided, but not Group",
+			Config: &config.Config{
+				Devices: map[string]config.Device{
+					"/dev/xvdb": {
+						MountPoint: "/mnt/foo",
+						User:       "user-a",
+					},
+					"/dev/xvdf": {},
+				},
+			},
+			ExpectedOutput: true,
+		},
+		{
+			Name: "Device has Mount Point and Group Provided, but not User",
+			Config: &config.Config{
+				Devices: map[string]config.Device{
+					"/dev/xvdb": {
+						MountPoint: "/mnt/foo",
+						Group:      "group-a",
+					},
+					"/dev/xvdf": {},
+				},
+			},
+			ExpectedOutput: true,
+		},
+		{
+			Name: "Device has Mount Point Provided, but not User and Group",
+			Config: &config.Config{
+				Devices: map[string]config.Device{
+					"/dev/xvdb": {
+						MountPoint: "/mnt/foo",
+					},
+					"/dev/xvdf": {},
+				},
+			},
+			ExpectedOutput: false,
+		},
+		{
+			Name: "No Device has Mount Point Provided",
+			Config: &config.Config{
+				Devices: map[string]config.Device{
+					"/dev/xvdf": {},
+				},
+			},
+			ExpectedOutput: false,
+		},
+	}
+	for _, subtest := range subtests {
+		t.Run(subtest.Name, func(t *testing.T) {
+			col := NewChangeOwnerLayer(nil, nil)
+			output := col.ShouldProcess(subtest.Config)
+			utils.CheckOutput("col.ShouldProcess()", t, subtest.ExpectedOutput, output)
+		})
+	}
+}
