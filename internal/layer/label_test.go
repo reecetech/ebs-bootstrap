@@ -219,3 +219,45 @@ func TestLabelDeviceLayerValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestLabelDeviceLayerShouldProcess(t *testing.T) {
+	subtests := []struct {
+		Name          string
+		Config        *config.Config
+		ExpectedValue bool
+	}{
+		{
+			Name: "At Least Once Device Has Label Specified",
+			Config: &config.Config{
+				Devices: map[string]config.Device{
+					"/dev/xvdb": {
+						Fs:    model.Ext4,
+						Label: "label",
+					},
+					"/dev/xvdf": {
+						Fs: model.Ext4,
+					},
+				},
+			},
+			ExpectedValue: true,
+		},
+		{
+			Name: "No Device Has Label Specified",
+			Config: &config.Config{
+				Devices: map[string]config.Device{
+					"/dev/xvdf": {
+						Fs: model.Ext4,
+					},
+				},
+			},
+			ExpectedValue: false,
+		},
+	}
+	for _, subtest := range subtests {
+		t.Run(subtest.Name, func(t *testing.T) {
+			ldl := NewLabelDeviceLayer(nil)
+			value := ldl.ShouldProcess(subtest.Config)
+			utils.CheckOutput("ldl.ShouldProcess()", t, subtest.ExpectedValue, value)
+		})
+	}
+}

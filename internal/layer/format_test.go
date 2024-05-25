@@ -166,3 +166,30 @@ func TestFormatDeviceLayerValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatDeviceLayerShouldProcess(t *testing.T) {
+	subtests := []struct {
+		Name           string
+		Config         *config.Config
+		ExpectedOutput bool
+	}{
+		{
+			Name: "File System Declared",
+			Config: &config.Config{
+				Devices: map[string]config.Device{
+					"/dev/xvdf": {
+						Fs: model.Xfs,
+					},
+				},
+			},
+			ExpectedOutput: true,
+		},
+	}
+	for _, subtest := range subtests {
+		t.Run(subtest.Name, func(t *testing.T) {
+			ld := NewFormatDeviceLayer(nil)
+			output := ld.ShouldProcess(subtest.Config)
+			utils.CheckOutput("ld.ShouldProcess()", t, subtest.ExpectedOutput, output)
+		})
+	}
+}
