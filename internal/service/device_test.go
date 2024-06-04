@@ -72,34 +72,32 @@ func TestGetBlockDevices(t *testing.T) {
 		ExpectedError  error
 	}{
 		{
-			Name:         "lsblk=success + json=valid",
+			Name:         "lsblk=success",
 			RunnerBinary: utils.Lsblk,
-			RunnerArgs:   []string{"--nodeps", "-o", "NAME", "-J"},
-			RunnerOutput: `{"blockdevices": [
-				{"name":"nvme1n1"},
-				{"name":"nvme0n1"}
-			]}`,
+			RunnerArgs:   []string{"--nodeps", "-o", "NAME", "-P"},
+			RunnerOutput: `NAME="nvme1n1"
+NAME="nvme0n1"`,
 			RunnerError:    nil,
 			ExpectedOutput: []string{"/dev/nvme1n1", "/dev/nvme0n1"},
 			ExpectedError:  nil,
 		},
 		{
-			Name:           "lsblk=success + json=invalid",
+			Name:           "lsblk=success + malformed response",
 			RunnerBinary:   utils.Lsblk,
-			RunnerArgs:     []string{"--nodeps", "-o", "NAME", "-J"},
-			RunnerOutput:   `{"invalid_json"}`,
+			RunnerArgs:     []string{"--nodeps", "-o", "NAME", "-P"},
+			RunnerOutput:   `malformed`,
 			RunnerError:    nil,
 			ExpectedOutput: nil,
-			ExpectedError:  fmt.Errorf("🔴 Failed to decode lsblk response: *"),
+			ExpectedError:  fmt.Errorf("🔴 Failed to decode lsblk response"),
 		},
 		{
 			Name:           "lsblk=failure",
 			RunnerBinary:   utils.Lsblk,
-			RunnerArgs:     []string{"--nodeps", "-o", "NAME", "-J"},
+			RunnerArgs:     []string{"--nodeps", "-o", "NAME", "-P"},
 			RunnerOutput:   "",
-			RunnerError:    fmt.Errorf("🔴 lsblk: invalid option -- 'J'"),
+			RunnerError:    fmt.Errorf("🔴 lsblk: invalid option -- 'P'"),
 			ExpectedOutput: nil,
-			ExpectedError:  fmt.Errorf("🔴 lsblk: invalid option -- 'J'"),
+			ExpectedError:  fmt.Errorf("🔴 lsblk: invalid option -- 'P'"),
 		},
 	}
 	for _, subtest := range subtests {
@@ -128,11 +126,9 @@ func TestGetBlockDevice(t *testing.T) {
 			Name:         "lsblk=success",
 			Device:       "/dev/nvme1n1",
 			RunnerBinary: utils.Lsblk,
-			RunnerArgs:   []string{"--nodeps", "-o", "LABEL,FSTYPE,MOUNTPOINT", "-J", "/dev/nvme1n1"},
-			RunnerOutput: `{"blockdevices": [
-				{"name":"nvme1n1", "label":"external-vol", "fstype":"xfs", "mountpoint":"/mnt/app"}
-			]}`,
-			RunnerError: nil,
+			RunnerArgs:   []string{"--nodeps", "-o", "LABEL,FSTYPE,MOUNTPOINT", "-P", "/dev/nvme1n1"},
+			RunnerOutput: `LABEL="external-vol" FSTYPE="xfs" MOUNTPOINT="/mnt/app"`,
+			RunnerError:  nil,
 			ExpectedOutput: &model.BlockDevice{
 				Name:       "/dev/nvme1n1",
 				Label:      "external-vol",
@@ -145,11 +141,9 @@ func TestGetBlockDevice(t *testing.T) {
 			Name:         "lsblk=success + device=unformatted",
 			Device:       "/dev/nvme1n1",
 			RunnerBinary: utils.Lsblk,
-			RunnerArgs:   []string{"--nodeps", "-o", "LABEL,FSTYPE,MOUNTPOINT", "-J", "/dev/nvme1n1"},
-			RunnerOutput: `{"blockdevices": [
-				{"name":"nvme1n1", "label":null, "fstype":null, "mountpoint":null}
-			]}`,
-			RunnerError: nil,
+			RunnerArgs:   []string{"--nodeps", "-o", "LABEL,FSTYPE,MOUNTPOINT", "-P", "/dev/nvme1n1"},
+			RunnerOutput: `LABEL="" FSTYPE="" MOUNTPOINT=""`,
+			RunnerError:  nil,
 			ExpectedOutput: &model.BlockDevice{
 				Name:       "/dev/nvme1n1",
 				Label:      "",
@@ -158,75 +152,31 @@ func TestGetBlockDevice(t *testing.T) {
 			},
 			ExpectedError: nil,
 		},
-		/*	Reference [https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html]
-			---
-			For example, if /dev/sdb is renamed /dev/xvdf, then /dev/sdc is renamed /dev/xvdg.
-			Amazon Linux creates a symbolic link for the name you specified to the renamed device.
-			Other operating systems could behave differently.
-			--
-			With this behaviour established on Amazon Linux, it is possible for lsblk to return a
-			device name that might not reflect the one that was provided to lsblk. To simplify the
-			output of ebs-bootstrap, lets force the BlockDevice to house the name that was provided
-			to the lsblk call
-		*/
 		{
-			Name:         "lsblk=success + symlink=true",
-			Device:       "/dev/sdb",
-			RunnerBinary: utils.Lsblk,
-			RunnerArgs:   []string{"--nodeps", "-o", "LABEL,FSTYPE,MOUNTPOINT", "-J", "/dev/sdb"},
-			RunnerOutput: `{"blockdevices": [
-				{"name":"xvdf", "label":"external-vol", "fstype":"xfs", "mountpoint":"/mnt/app"}
-			]}`,
-			RunnerError: nil,
-			ExpectedOutput: &model.BlockDevice{
-				Name:       "/dev/sdb",
-				Label:      "external-vol",
-				FileSystem: model.Xfs,
-				MountPoint: "/mnt/app",
-			},
-			ExpectedError: nil,
-		},
-		{
-			Name:           "lsblk=success + json=invalid",
+			Name:           "lsblk=success + malformed response",
 			Device:         "/dev/sdb",
 			RunnerBinary:   utils.Lsblk,
-			RunnerArgs:     []string{"--nodeps", "-o", "LABEL,FSTYPE,MOUNTPOINT", "-J", "/dev/sdb"},
-			RunnerOutput:   `{"invalid_json"}`,
+			RunnerArgs:     []string{"--nodeps", "-o", "LABEL,FSTYPE,MOUNTPOINT", "-P", "/dev/sdb"},
+			RunnerOutput:   "malformed",
 			RunnerError:    nil,
 			ExpectedOutput: nil,
-			ExpectedError:  fmt.Errorf("🔴 Failed to decode lsblk response: *"),
+			ExpectedError:  fmt.Errorf("🔴 Failed to decode lsblk response"),
 		},
 		{
-			Name:         "lsblk=success + filesystem=unsupported",
-			Device:       "/dev/sdb",
-			RunnerBinary: utils.Lsblk,
-			RunnerArgs:   []string{"--nodeps", "-o", "LABEL,FSTYPE,MOUNTPOINT", "-J", "/dev/sdb"},
-			RunnerOutput: `{"blockdevices": [
-				{"name":"sdb", "label":null, "fstype":"jfs", "mountpoint":"/mnt/app"}
-			]}`,
+			Name:           "lsblk=success + filesystem=unsupported",
+			Device:         "/dev/sdb",
+			RunnerBinary:   utils.Lsblk,
+			RunnerArgs:     []string{"--nodeps", "-o", "LABEL,FSTYPE,MOUNTPOINT", "-P", "/dev/sdb"},
+			RunnerOutput:   `LABEL="" FSTYPE="jfs" MOUNTPOINT="/mnt/app"`,
 			RunnerError:    nil,
 			ExpectedOutput: nil,
 			ExpectedError:  fmt.Errorf("🔴 /dev/sdb: File system 'jfs' is not supported"),
-		},
-		/*	I haven't encountered a scenario where lsblk successfully returns an empty array
-			Typically, if it cannot find a specific block device, it would produce an error.
-			Nevertheless, lets test this scenario...
-		*/
-		{
-			Name:           "lsblk=success + len(devices)==0",
-			Device:         "/dev/sdb",
-			RunnerBinary:   utils.Lsblk,
-			RunnerArgs:     []string{"--nodeps", "-o", "LABEL,FSTYPE,MOUNTPOINT", "-J", "/dev/sdb"},
-			RunnerOutput:   `{"blockdevices": []}`,
-			RunnerError:    nil,
-			ExpectedOutput: nil,
-			ExpectedError:  fmt.Errorf("🔴 /dev/sdb: An unexpected number of block devices were returned: Expected=1 Actual=0"),
 		},
 		{
 			Name:           "lsblk=failure",
 			Device:         "/dev/sdc",
 			RunnerBinary:   utils.Lsblk,
-			RunnerArgs:     []string{"--nodeps", "-o", "LABEL,FSTYPE,MOUNTPOINT", "-J", "/dev/sdc"},
+			RunnerArgs:     []string{"--nodeps", "-o", "LABEL,FSTYPE,MOUNTPOINT", "-P", "/dev/sdc"},
 			RunnerOutput:   "",
 			RunnerError:    fmt.Errorf("🔴 lsblk: /dev/sdc: not a block device"),
 			ExpectedOutput: nil,

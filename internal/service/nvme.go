@@ -90,6 +90,8 @@ type nvmeIdentifyController struct {
 	Vs        nvmeIdentifyControllerAmznVS
 }
 
+var instanceStoreRegex = regexp.MustCompile(`^(ephemeral[0-9]):(sd[a-z]|none)`)
+
 type NVMeIoctlResult struct {
 	Name   string
 	IdCtrl nvmeIdentifyController
@@ -162,12 +164,11 @@ func (ns *AwsNitroNVMeService) getBlockDeviceMapping(nir *NVMeIoctlResult) (stri
 	if ns.isInstanceStoreVolume(nir) {
 		// Vendor Specfic (vs)
 		vs := strings.TrimRightFunc(string(nir.IdCtrl.Vs.Bdev[:]), ns.trimBlockDevice)
-		// Regex Block device Mapping
-		rebdm := regexp.MustCompile(`^(ephemeral[0-9]):(sd[a-z]|none)`)
+
 		// Match Block Device Mapping
-		mbdm := rebdm.FindStringSubmatch(vs)
+		mbdm := instanceStoreRegex.FindStringSubmatch(vs)
 		if len(mbdm) != 3 {
-			return "", fmt.Errorf("🔴 %s: Instance-store vendor specific metadata did not match pattern. Pattern=%s, Actual=%s", nir.Name, rebdm.String(), vs)
+			return "", fmt.Errorf("🔴 %s: Instance-store vendor specific metadata did not match pattern. Pattern=%s, Actual=%s", nir.Name, instanceStoreRegex.String(), vs)
 		}
 		// If the block device mapping is "none", then lets default to assigning the
 		// the block device mapping to the match result from ephemeral[0-9]

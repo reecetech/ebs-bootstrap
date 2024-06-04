@@ -19,85 +19,85 @@ const (
 
 func TestGetBlockDeviceMapping(t *testing.T) {
 	subtests := []struct {
-		Name               string
-		Device             string
-		VendorId           uint16
-		ModelNumber        string
-		BlockDevice        string
-		ExpectedOutput     string
-		ExpectedError      error
+		Name           string
+		Device         string
+		VendorId       uint16
+		ModelNumber    string
+		BlockDevice    string
+		ExpectedOutput string
+		ExpectedError  error
 	}{
 		{
-			Name:               "EBS NVMe Device + Pre-launch",
-			Device:             "/dev/nvme1n1",
-			VendorId:           AMZN_NVME_VID,
-			ModelNumber:        AMZN_NVME_EBS_MN,
-			BlockDevice:        "sdb",
-			ExpectedOutput:     "/dev/sdb",
-			ExpectedError:      nil,
+			Name:           "EBS NVMe Device + Pre-launch",
+			Device:         "/dev/nvme1n1",
+			VendorId:       AMZN_NVME_VID,
+			ModelNumber:    AMZN_NVME_EBS_MN,
+			BlockDevice:    "sdb",
+			ExpectedOutput: "/dev/sdb",
+			ExpectedError:  nil,
 		},
 		{
-			Name:               "EBS NVMe Device + Post-launch",
-			Device:             "/dev/nvme1n1",
-			VendorId:           AMZN_NVME_VID,
-			ModelNumber:        AMZN_NVME_EBS_MN,
-			BlockDevice:        "/dev/sdb",
-			ExpectedOutput:     "/dev/sdb",
-			ExpectedError:      nil,
+			Name:           "EBS NVMe Device + Post-launch",
+			Device:         "/dev/nvme1n1",
+			VendorId:       AMZN_NVME_VID,
+			ModelNumber:    AMZN_NVME_EBS_MN,
+			BlockDevice:    "/dev/sdb",
+			ExpectedOutput: "/dev/sdb",
+			ExpectedError:  nil,
 		},
 		{
-			Name:               "Instance Store NVMe Device",
-			Device:             "/dev/nvme1n1",
-			VendorId:           AMZN_NVME_VID,
-			ModelNumber:        AMZN_NVME_INS_MN,
-			BlockDevice:        "ephemeral0:sdb",
-			ExpectedOutput:     "/dev/sdb",
-			ExpectedError:      nil,
+			Name:           "Instance Store NVMe Device",
+			Device:         "/dev/nvme1n1",
+			VendorId:       AMZN_NVME_VID,
+			ModelNumber:    AMZN_NVME_INS_MN,
+			BlockDevice:    "ephemeral0:sdb",
+			ExpectedOutput: "/dev/sdb",
+			ExpectedError:  nil,
 		},
 		{
-			Name:               "Instance Store NVMe Device + Null Byte",
-			Device:             "/dev/nvme1n1",
-			VendorId:           AMZN_NVME_VID,
-			ModelNumber:        AMZN_NVME_INS_MN,
-			BlockDevice:        "ephemeral0:sdb\x00a",
-			ExpectedOutput:     "/dev/sdb",
-			ExpectedError:      nil,
+			Name:           "Instance Store NVMe Device + Null Byte",
+			Device:         "/dev/nvme1n1",
+			VendorId:       AMZN_NVME_VID,
+			ModelNumber:    AMZN_NVME_INS_MN,
+			BlockDevice:    "ephemeral0:sdb\x00a",
+			ExpectedOutput: "/dev/sdb",
+			ExpectedError:  nil,
 		},
 		{
-			Name:               "Instance Store NVMe Device + Missing Block Device Mapping",
-			Device:             "/dev/nvme1n1",
-			VendorId:           AMZN_NVME_VID,
-			ModelNumber:        AMZN_NVME_INS_MN,
-			BlockDevice:        "ephemeral0:none",
-			ExpectedOutput:     "/dev/ephemeral0",
-			ExpectedError:      nil,
+			Name:           "Instance Store NVMe Device + Missing Block Device Mapping",
+			Device:         "/dev/nvme1n1",
+			VendorId:       AMZN_NVME_VID,
+			ModelNumber:    AMZN_NVME_INS_MN,
+			BlockDevice:    "ephemeral0:none",
+			ExpectedOutput: "/dev/ephemeral0",
+			ExpectedError:  nil,
 		},
 		{
-			Name:               "Instance Store NVMe Device + Pattern Mismatch",
-			Device:             "/dev/nvme1n1",
-			VendorId:           AMZN_NVME_VID,
-			ModelNumber:        AMZN_NVME_INS_MN,
-			BlockDevice:        "ephemeral0:vdb",
-			ExpectedOutput:     "",
-			ExpectedError:      fmt.Errorf("🔴 /dev/nvme1n1: Instance-store vendor specific metadata did not match pattern. Pattern=^(ephemeral[0-9]):(sd[a-z]|none), Actual=ephemeral0:vdb"),
+			Name:           "Instance Store NVMe Device + Pattern Mismatch",
+			Device:         "/dev/nvme1n1",
+			VendorId:       AMZN_NVME_VID,
+			ModelNumber:    AMZN_NVME_INS_MN,
+			BlockDevice:    "ephemeral0:vdb",
+			ExpectedOutput: "",
+			ExpectedError:  fmt.Errorf("🔴 /dev/nvme1n1: Instance-store vendor specific metadata did not match pattern. Pattern=^(ephemeral[0-9]):(sd[a-z]|none), Actual=ephemeral0:vdb"),
 		},
 		{
-			Name:               "Invalid NVMe Device (Unsupported Vendor ID)",
-			Device:             "/dev/nvme1n1",
-			VendorId:           UNSUPPORTED_NVME_VID,
-			ModelNumber:        AMZN_NVME_EBS_MN,
-			BlockDevice:        "",
-			ExpectedOutput:     "",
-			ExpectedError:      fmt.Errorf("🔴 /dev/nvme1n1 is not an AWS-managed NVME device"),
+			Name:           "Invalid NVMe Device (Unsupported Vendor ID)",
+			Device:         "/dev/nvme1n1",
+			VendorId:       UNSUPPORTED_NVME_VID,
+			ModelNumber:    AMZN_NVME_EBS_MN,
+			BlockDevice:    "",
+			ExpectedOutput: "",
+			ExpectedError:  fmt.Errorf("🔴 /dev/nvme1n1 is not an AWS-managed NVME device"),
 		},
 		{
-			Name:               "Invalid NVMe Device (Unsupported Model Number)",
-			Device:             "/dev/nvme1n1",
-			VendorId:           AMZN_NVME_VID,
-			ModelNumber:        UNSUPPORTED_NVME_MN,
-			BlockDevice:        "",
-			ExpectedOutput:     "",
-			ExpectedError:      fmt.Errorf("🔴 /dev/nvme1n1 is not an AWS-managed NVME device"),
+			Name:           "Invalid NVMe Device (Unsupported Model Number)",
+			Device:         "/dev/nvme1n1",
+			VendorId:       AMZN_NVME_VID,
+			ModelNumber:    UNSUPPORTED_NVME_MN,
+			BlockDevice:    "",
+			ExpectedOutput: "",
+			ExpectedError:  fmt.Errorf("🔴 /dev/nvme1n1 is not an AWS-managed NVME device"),
 		},
 	}
 	for _, subtest := range subtests {
