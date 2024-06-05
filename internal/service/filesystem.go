@@ -42,7 +42,7 @@ func (fsf *LinuxFileSystemServiceFactory) Select(fs model.FileSystem) (FileSyste
 		return NewXfsService(fsf.RunnerFactory), nil
 	case model.Lvm:
 		//lint:ignore ST1005 This Error Message Is Supposed to Be Prepended With A Device Name
-		return nil, fmt.Errorf("Refer to https://github.com/reecetech/ebs-bootstrap/wiki/LVM on how to manage LVM file systems")
+		return nil, fmt.Errorf("A Physical Volume cannot be queried/modified")
 	case model.Unformatted:
 		//lint:ignore ST1005 This Error Message Is Supposed to Be Prepended With A Device Name
 		return nil, fmt.Errorf("An unformatted file system can not be queried/modified")

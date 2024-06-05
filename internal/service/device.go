@@ -1,13 +1,17 @@
 package service
 
 import (
-	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/reecetech/ebs-bootstrap/internal/model"
 	"github.com/reecetech/ebs-bootstrap/internal/utils"
 )
+
+var deviceNameRegex = regexp.MustCompile(`^NAME="(.*)"`)
+var devicePropertiesRegex = regexp.MustCompile(`^LABEL="(.*)" FSTYPE="(.*)" MOUNTPOINT="(.*)"`)
 
 type DeviceService interface {
 	GetSize(name string) (uint64, error) // bytes
@@ -19,15 +23,6 @@ type DeviceService interface {
 
 type LinuxDeviceService struct {
 	runnerFactory utils.RunnerFactory
-}
-
-type LsblkBlockDeviceResponse struct {
-	BlockDevices []struct {
-		Name       *string `json:"name"`
-		Label      *string `json:"label"`
-		FsType     *string `json:"fstype"`
-		MountPoint *string `json:"mountpoint"`
-	} `json:"blockdevices"`
 }
 
 func NewLinuxDeviceService(rc utils.RunnerFactory) *LinuxDeviceService {
@@ -51,46 +46,45 @@ func (du *LinuxDeviceService) GetSize(name string) (uint64, error) {
 
 func (du *LinuxDeviceService) GetBlockDevices() ([]string, error) {
 	r := du.runnerFactory.Select(utils.Lsblk)
-	output, err := r.Command("--nodeps", "-o", "NAME", "-J")
+	output, err := r.Command("--nodeps", "-o", "NAME", "-P")
 	if err != nil {
 		return nil, err
 	}
-	lbd := &LsblkBlockDeviceResponse{}
-	err = json.Unmarshal([]byte(output), lbd)
-	if err != nil {
-		return nil, fmt.Errorf("🔴 Failed to decode lsblk response: %v", err)
-	}
-	d := make([]string, len(lbd.BlockDevices))
-	for i := range d {
-		d[i] = "/dev/" + utils.Safe(lbd.BlockDevices[i].Name)
+
+	lines := strings.Split(strings.TrimSuffix(output, "\n"), "\n")
+	d := make([]string, len(lines))
+
+	for i, line := range lines {
+		matches := deviceNameRegex.FindStringSubmatch(line)
+		if len(matches) != 2 {
+			return nil, fmt.Errorf("🔴 Failed to decode lsblk response")
+		}
+		d[i] = "/dev/" + matches[1]
 	}
 	return d, nil
 }
 
 func (du *LinuxDeviceService) GetBlockDevice(name string) (*model.BlockDevice, error) {
 	r := du.runnerFactory.Select(utils.Lsblk)
-	output, err := r.Command("--nodeps", "-o", "LABEL,FSTYPE,MOUNTPOINT", "-J", name)
+	output, err := r.Command("--nodeps", "-o", "LABEL,FSTYPE,MOUNTPOINT", "-P", name)
 	if err != nil {
 		return nil, err
 	}
-	lbd := &LsblkBlockDeviceResponse{}
-	err = json.Unmarshal([]byte(output), lbd)
-	if err != nil {
-		return nil, fmt.Errorf("🔴 Failed to decode lsblk response: %v", err)
+
+	matches := devicePropertiesRegex.FindStringSubmatch(output)
+	if len(matches) != 4 {
+		return nil, fmt.Errorf("🔴 Failed to decode lsblk response")
 	}
-	if len(lbd.BlockDevices) != 1 {
-		return nil, fmt.Errorf("🔴 %s: An unexpected number of block devices were returned: Expected=1 Actual=%d", name, len(lbd.BlockDevices))
-	}
-	fst := utils.Safe(lbd.BlockDevices[0].FsType)
-	fs, err := model.ParseFileSystem(fst)
+
+	fs, err := model.ParseFileSystem(matches[2])
 	if err != nil {
 		return nil, fmt.Errorf("🔴 %s: %s", name, err)
 	}
 	return &model.BlockDevice{
 		Name:       name,
-		Label:      utils.Safe(lbd.BlockDevices[0].Label),
+		Label:      matches[1],
 		FileSystem: fs,
-		MountPoint: utils.Safe(lbd.BlockDevices[0].MountPoint),
+		MountPoint: matches[3],
 	}, nil
 }
 

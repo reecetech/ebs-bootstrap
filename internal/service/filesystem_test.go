@@ -48,6 +48,13 @@ func TestFileSystemFactory(t *testing.T) {
 			ExpectedOutput: nil,
 			ExpectedError:  fmt.Errorf("An unformatted file system can not be queried/modified"),
 		},
+		{
+			Name:           "LVM",
+			FileSystem:     model.Lvm,
+			CmpOption:      cmp.AllowUnexported(),
+			ExpectedOutput: nil,
+			ExpectedError:  fmt.Errorf("A Physical Volume cannot be queried/modified"),
+		},
 	}
 	for _, subtest := range subtests {
 		t.Run(subtest.Name, func(t *testing.T) {

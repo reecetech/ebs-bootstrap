@@ -207,6 +207,17 @@ func TestFileSystemValidator(t *testing.T) {
 			},
 			ExpectedError: fmt.Errorf("🔴 /dev/xvdf: Must provide a supported file system"),
 		},
+		{
+			Name: "LVM File System",
+			Config: &Config{
+				Devices: map[string]Device{
+					"/dev/xvdf": {
+						Fs: model.Lvm,
+					},
+				},
+			},
+			ExpectedError: fmt.Errorf("🔴 /dev/xvdf: Refer to %s on how to manage LVM file systems", LvmWikiDocumentationUrl),
+		},
 	}
 	for _, subtest := range subtests {
 		fsv := NewFileSystemValidator()

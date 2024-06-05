@@ -9,6 +9,10 @@ import (
 	"github.com/reecetech/ebs-bootstrap/internal/service"
 )
 
+const (
+	LvmWikiDocumentationUrl = "https://github.com/reecetech/ebs-bootstrap/wiki/LVM"
+)
+
 type Validator interface {
 	Validate(c *Config) error
 }
@@ -47,6 +51,9 @@ func (fsv *FileSystemValidator) Validate(c *Config) error {
 		}
 		if fs == model.Unformatted {
 			return fmt.Errorf("🔴 %s: Must provide a supported file system", name)
+		}
+		if fs == model.Lvm {
+			return fmt.Errorf("🔴 %s: Refer to %s on how to manage LVM file systems", name, LvmWikiDocumentationUrl)
 		}
 	}
 	return nil
